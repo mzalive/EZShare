@@ -36,7 +36,7 @@ public class FetchClient {
 			String result2 = input.readUTF();
 			String result3 = input.readUTF();
 			System.out.println(result2+result3);
-			File file = new File("/Users/macbookair/Desktop/aaron2.jpg");
+			File file = new File("/Users/leonchung/Desktop/aaron2.jpg");
 			FileOutputStream fos = new FileOutputStream(file);
 			byte[] inputBytes = new byte[1743506];
 			int length =0;

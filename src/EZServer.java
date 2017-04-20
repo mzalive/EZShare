@@ -3,6 +3,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+
 import javax.net.ServerSocketFactory;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -12,10 +14,13 @@ public class EZServer {
 
 	private static int port = 3780;
 	private static int counter =0;
+	private static ResourceManager resourceManager; // resource manager handles all server resources
+	
 		public static void main(String[] args) {
 			// TODO Auto-generated method stub
 			ServerSocketFactory factory = ServerSocketFactory.getDefault();
 			try(ServerSocket server = factory.createServerSocket(port)){
+				resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
 				System.out.println("Waiting for client connection.");
 				while(true){
 					Socket client = server.accept();
@@ -38,6 +43,7 @@ public class EZServer {
 			//System.out.println("CLIENT: "+input.readUTF());
 			output.writeUTF("Server: Hi Client "+counter+" hah!!!");
 			JSONObject results = new JSONObject();
+			
 			//results.put("response", "success");
 			//output.writeUTF(results.toJSONString());
 			//Receive more data
@@ -49,8 +55,24 @@ public class EZServer {
 					// JSONObject result1 = parseCommand(command);
 					JSONObject result = parseCommand(command);
 			      //  results.put("responses", "success");
-					output.writeUTF(result.toJSONString());
-					output.flush();
+					
+					// handle output for QUERY command
+					JSONObject result2 = new JSONObject();
+					if (command.get("command").equals("QUERY")) {
+						//System.out.println(result.toJSONString());
+						result2.put("response", result.get("response").toString());
+						output.writeUTF(result2.toJSONString());
+						for (int i = 0; i < result.size()-1; i++) {
+							output.writeUTF(result.get("result"+i).toString());
+						}
+						result2.clear();
+						result2.put("resultSize", result.size()-1);
+						output.writeUTF(result2.toJSONString());
+					}
+					else {
+						output.writeUTF(result.toJSONString());
+						output.flush();	
+					}
 				}
 			}
 		}
@@ -118,17 +140,30 @@ public class EZServer {
 			return results;
 		}
 		
-		case "QURERY":{
-			JSONObject resource = (JSONObject) command.get("resource");
+		case "QUERY":{
+			JSONObject resource = (JSONObject) command.get("resourceTemplate");
+			
+			// query server object to handle queries
+			QueryServer queryObject = new QueryServer(resourceManager);
+			ArrayList<JSONObject> resourcesJSONFormat;
+			
 			boolean relay = (boolean)command.get("relay");
-			String name =resource.get("name").toString();
+			
+			/*String name =resource.get("name").toString();
 			String tags = resource.get("tags").toString();
 			String description = resource.get("description").toString();
 			String uri = resource.get("uri").toString();
 			String channel = resource.get("channel").toString();
 			String owner = resource.get("owner").toString();
 			String ezserver = resource.get("ezserver").toString();
-			results.put("QUERY RESPONSE","success");
+			results.put("QUERY RESPONSE","success");*/
+			
+			resourcesJSONFormat = queryObject.query(resource);
+			
+			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
+				results.put("result"+i, resourcesJSONFormat.get(i));
+			}
+			
 			return results;
 		} 
 		
