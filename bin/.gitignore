@@ -6,3 +6,12 @@
 /Server.class
 /lib/
 /testclient.class
+/ExchangeClient.class
+/FetchClient.class
+/PublishClient.class
+/QueryClient.class
+/QueryServer.class
+/RemoveClient.class
+/ResourceManager.class
+/ShareClient.class
+/FetchServer.class
