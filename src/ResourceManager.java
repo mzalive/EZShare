@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.util.ArrayList;
 
@@ -22,6 +23,14 @@ public class ResourceManager {
 	
 	public ArrayList<Resource> getServerResources() {
 		return serverResources;
+	}
+	
+	public Resource getServerResource(String channel, String uri) {
+		for (Resource r: serverResources) {
+			if (r.getChannel().equals(channel) && r.getUri().equals(uri))
+				return r;
+		}
+		return null;
 	}
 	
 }
