@@ -12,7 +12,7 @@ public class Resource {
 	private String owner;
 	private String ezserver;
 	
-	public Resource(String name, String description, ArrayList<String> tags, String uri, String channel, String owner,
+	public Resource(String name, String description, ArrayList<String> tags, String uri, String channel, String owner, 
 			String ezserver) {
 		//returns a resource object with full information 
 		super();
@@ -23,6 +23,18 @@ public class Resource {
 		this.channel = channel;
 		this.owner = owner;
 		this.ezserver = ezserver;
+	}
+	
+	public Resource(String name, String description, ArrayList<String> tags, String uri, String channel, String owner) {
+		//returns a resource object with no server info 
+		super();
+		this.name = name;
+		this.description = description;
+		this.tags = tags;
+		this.uri = uri;
+		this.channel = channel;
+		this.owner = owner;
+		this.ezserver = "";
 	}
 
 	public Resource(String uri) {
@@ -60,7 +72,7 @@ public class Resource {
 		json.put("channel", channel);
 		json.put("owner", owner);
 		json.put("uri", uri);
-		json.put("ezserver", ezserver);
+//		json.put("ezserver", ezserver);
 		
 		return json;
 	}
