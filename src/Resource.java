@@ -1,5 +1,8 @@
 import java.util.ArrayList;
 
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
 public class Resource {
 	private String name;
 	private String description;
@@ -44,6 +47,22 @@ public class Resource {
 		this.channel = "";
 		this.owner = "";
 		this.ezserver = null;
+	}
+	
+	public JSONObject toJSON() {
+		JSONObject json = new JSONObject();
+		JSONArray tag_array = new JSONArray();
+		for (String tag: tags) tag_array.add(tag);
+		
+		json.put("name", name);
+		json.put("tags", tag_array);
+		json.put("description", description);
+		json.put("channel", channel);
+		json.put("owner", owner);
+		json.put("uri", uri);
+		json.put("ezserver", ezserver);
+		
+		return json;
 	}
 
 	public String getName() {
