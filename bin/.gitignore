@@ -15,3 +15,5 @@
 /ResourceManager.class
 /ShareClient.class
 /FetchServer.class
+/ShareServer.class
+/PublishServer.class
