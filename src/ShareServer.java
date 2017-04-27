@@ -23,7 +23,7 @@ public class ShareServer {
 		ArrayList<String> tags = new ArrayList<String>();
 		if (!clientCmd.containsKey("resource") || !clientCmd.containsKey("secret")) 
 			return returnErrorMsg("missing resource and\\/or secret");
-		if (clientCmd.get("secret").toString().equals(secret)) 
+		if (clientCmd.get("secret").toString().equals(secret))
 			return returnErrorMsg("incorrect secret");
 		
 		//extract resource

@@ -115,19 +115,19 @@ public class EZServer {
 		
 		case "PUBLISH":{
 			JSONObject resource = (JSONObject) command.get("resource");
+			ArrayList<JSONObject> outcomeJSON;
 			
 			// query object to handle publish command
 			PublishServer publishObject = new PublishServer(resource);
+			outcomeJSON = publishObject.publish();
 			
+			// respond with the outcome of the operation
+			results.put("PUBLISH RESPONSE","success");
 			
-			/*String name =resource.get("name").toString();
-			String tags = resource.get("tags").toString();
-			String description = resource.get("description").toString();
-			String uri = resource.get("uri").toString();
-			String channel = resource.get("channel").toString();
-			String owner = resource.get("owner").toString();
-			String ezserver = resource.get("ezserver").toString();
-			results.put("PUBLISH RESPONSE","success");*/
+			for (int i = 0; i < outcomeJSON.size(); i++) {
+				results.put("result"+i, outcomeJSON.get(i));
+			}
+			
 			return results;
 		}
 		
