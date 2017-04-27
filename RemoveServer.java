@@ -29,12 +29,15 @@ public class RemoveServer {
 				File file = new File(uri);
 				if (!file.exists())
 					return returnErrorMsg("cannot remove resource");
+				else file.delete();
+				@SuppressWarnings("unused")
+				Resource r = new Resource(uri.toString());
+				
+				result.put("response", "success");		
 			} catch (URISyntaxException e) {
 				return returnErrorMsg("invalid resource");
 			}
-		@SuppressWarnings("unused")
-		Resource r = new Resource(uri.toString());		
-		result.put("response", "success");		
+
 		return null;	
 	}
 	@SuppressWarnings("unchecked")
