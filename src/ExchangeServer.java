@@ -29,10 +29,12 @@ public class ExchangeServer {
 			returnErrorMsg("missing or invalid server list"); 	    
 	    	if(serverlist.containsKey("hostname")){
 		    	list = serverlist.get("hostname").toString();
-		          slist = list.split("\r\n|  ");
-		            for(int i=0;i<slist.length;i++){
-				            recordhostname.add(slist[i]);
-			                               }
+		          slist = list.split("\\s");
+		          for(String s : slist)
+		             {
+                       recordhostname.add(s);		        	  
+		                }		        	  
+
 		                     for(int a= 1;a<recordhostname.size();a=a+2)
 		                       {
 		    	                String n = recordhostname.get(a);
@@ -47,13 +49,14 @@ public class ExchangeServer {
 		                              }
 		             if(serverlist.containsKey("port"))
 			            list1 = serverlist.get("port").toString();
-		                 slist1 = list1.split("\r\n|  ");
-		                  for(int i=0;i<slist1.length;i++){
-				             recordport.add(slist1[i]);
-			                      }
-		                    for(int a= 1;a<recordhostname.size();a=a+2)
+		                 slist1 = list1.split("\\s");
+				          for(String s : slist1)
+				             {
+		                       recordport.add(s);		        	  
+				                }		
+		                    for(int a= 1;a<recordport.size();a=a+2)
 		                     {
-		    	               String n = recordhostname.get(a);
+		    	               String n = recordport.get(a);
 		    	                int port = Integer.parseInt(n);
                                  if (port<0 && port>65535)
    		    	                   returnErrorMsg("missing resourceTemplate"); 	    	   
@@ -62,11 +65,12 @@ public class ExchangeServer {
 		ll.add(serverlist);	
 		serverrecord.put("serverlist",ll);
 		
-		return null;
-		
+		return result;
 		
 		
 	}	
+	
+	
 	
 	
 	
