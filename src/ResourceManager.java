@@ -14,7 +14,7 @@ public class ResourceManager {
 	public ResourceManager(String ezServer, String serverPort) {
 		for (int i = 0; i < serverResourceFiles.length; i++) {	
 			
-			Resource r = new Resource(serverResourceFiles[i].toURI().toString());
+			Resource r = new Resource("file://" + serverResourceFiles[i].toURI().getRawPath());
 			r.setName(serverResourceFiles[i].getName());
 			r.setEzserver(ezServer+":"+serverPort);
 			serverResources.add(r);
