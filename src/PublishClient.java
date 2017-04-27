@@ -12,7 +12,7 @@ public class PublishClient {
 	private static int port = 3780;
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		// TODO Auto-generated method stub
-		try(Socket socket = new Socket("sunrise.cis.unimelb.edu.au",port);){
+		try(Socket socket = new Socket("localhost",port);){
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 
@@ -26,7 +26,7 @@ public class PublishClient {
 			resource.put("uri","http://www.big4.com");
 			resource.put("channel", "");
 			resource.put("owner", "");
-			resource.put("ezserver", "big4.com:3780");
+			resource.put("ezserver", "localhost");
 			newCommand.put("resource", resource);
 			output.writeUTF(newCommand.toJSONString());
 			output.flush();

@@ -12,7 +12,7 @@ public class ShareClient {
 	private static int port = 3780;
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		// TODO Auto-generated method stub
-		try(Socket socket = new Socket("sunrise.cis.unimelb.edu.au",port);){
+		try(Socket socket = new Socket("localhost",port);){
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 
@@ -27,7 +27,7 @@ public class ShareClient {
 			resource.put("uri","file:\\home//aaron//EZShare//ezshare.jar");
 			resource.put("channel", "");
 			resource.put("owner", "");
-			resource.put("ezserver", "sunrise.cis.unimelb.edu.au:3780");
+			resource.put("ezserver", "localhost");
 			newCommand.put("resource", resource);
 			output.writeUTF(newCommand.toJSONString());
 			output.flush();
