@@ -25,6 +25,9 @@ public class ResourceManager {
 		return serverResources;
 	}
 	
+	public void addResource(Resource r) {
+		serverResources.add(r);
+	}
 	public Resource getServerResource(String channel, String uri) {
 		for (Resource r: serverResources) {
 			if (r.getChannel().equals(channel) && r.getUri().equals(uri))
