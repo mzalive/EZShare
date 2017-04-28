@@ -110,13 +110,11 @@ public class EZClient {
 				resource  = new JSONObject();
 				JSONObject Publish = new JSONObject();
 				ArrayList<String> tags = new ArrayList<String>();
-				tags.add("web");
-				tags.add("html");
 				//resource = new JSONObject();
-				resource.put("name", "Unimelb website");
+				resource.put("name", "");
 				resource.put("channel", "");
-				resource.put("description", "The main page for the University of Melbourne");
-				resource.put("uri", "http://www.unimelb.edu.au");
+				resource.put("description", "");
+				resource.put("uri", "");
 				resource.put("owner", "");
 				resource.put("ezserver", null);
 				resource.put("tags", tags);
