@@ -12,11 +12,19 @@ import org.json.simple.JSONObject;
 public class EZClient {
 
 	
-	private static int port = 3781;
+	//private static int port = 3781;
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		// TODO Auto-generated method stub
-
-		try(Socket socket = new Socket("sunrise.cis.unimelb.edu.au",port);){
+		int port = 3781;
+		String host = "sunrise.cis.unimelb.edu.au";
+		for(int i=0; i<args.length;i++){
+			if(args[i].equals("-host"))
+			{host=args[i+1];}
+			else if(args[i].equals("-port"))
+			{port=Integer.parseInt(args[i+1]);}
+			else{}
+		}
+		try(Socket socket = new Socket(host,port);){
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 			int len = args.length;
@@ -242,7 +250,15 @@ public class EZClient {
 		    json.put("serverList", a);
 			break;
 		case "-tags":
-			
+		    String[] bb = s2.split("\\,"); 
+		    ArrayList<String> b = (ArrayList<String>) json.get("tags");
+		    if(bb.length>0){
+		    for (int i = 0 ; i <bb.length ; i++ ) {
+		    	
+		    		b.add(bb[i]);
+		    	
+		    }}
+		    json.put("tags", b);
 			break;
 		case "-uri":
 			r = (JSONObject) json.get("resourceTemplate");
