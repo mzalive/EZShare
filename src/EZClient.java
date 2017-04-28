@@ -46,78 +46,60 @@ public class EZClient {
 				output.flush();
 				break;
 			case "-EXCHANGE":
-				try(Socket esocket = new Socket("sunrise.cis.unimelb.edu.au",port);){
-					JSONObject newCommand = new JSONObject();
-					JSONObject server1 = new JSONObject();
-					server1.put("hostname", "115.146.85.165");
-					server1.put("port", 3780);
-					JSONObject server2 = new JSONObject();
-					server2.put("hostname", "115.146.85.24");
-					server2.put("port", 3780);
-					JSONObject server3 = new JSONObject();
-					server3.put("hostname", "115.146.85.25");
-					server3.put("port", 3780);
-					ArrayList<JSONObject> l = new ArrayList<JSONObject>();
-					l.add(server1);
-					l.add(server2);
-					l.add(server3);
-					newCommand.put("serverList", l);
-					
-					newCommand.put("command", "EXCHANGE");
-
-					output.writeUTF(newCommand.toJSONString());
-					output.flush();
-					System.out.println("Received from server:");
-					while(true){
-				  if(input.available()>0){
-						String result = input.readUTF();	
-						System.out.println(result);
-					}
-				  else{
-					  break;
-				  }
-					}
-					break;
-					}
-
+				ExchangeClient e = new ExchangeClient();
+				i=1;
+				JSONObject Exchange = new JSONObject();
+				Exchange.put("serverList", new ArrayList<JSONObject>());
+				while(i<args.length){
+					Exchange = parse(args[i],args[i+1],Exchange);
+					i+=2;
+				}
+				
+				Exchange.put("command", "EXCHANGE");
+				System.out.println(Exchange.toJSONString());
+				output.writeUTF(Exchange.toJSONString());
+				output.flush();
+				break;
 			case "-FETCH":
-				try(Socket fsocket = new Socket("sunrise.cis.unimelb.edu.au",port);){
-					//DataInputStream input = new DataInputStream(socket.getInputStream());
-					//DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-					JSONObject newCommand = new JSONObject();
-					JSONObject resource = new JSONObject();		
-					resource.put("name", "Aaron");
-					resource.put("tags", "['photo','jpeg','jpg']");
-					resource.put("description", "Secret agent photo :-)");
-					resource.put("uri", "file:///usr/local/share/ezshare/photo.jpg");
-					resource.put("channel", "");
-					resource.put("owner", "*");
-					resource.put("ezserver", "sunrise.cis.unimelb.edu.au:3780");
-					newCommand.put("command","FETCH");
-					newCommand.put("resourceTemplate", resource);
-					newCommand.put("command","FETCH");
-					System.out.println(newCommand.toJSONString());		
-					output.writeUTF(newCommand.toJSONString());
-					output.flush();	
-					System.out.println("Received from server:");
-					String result2 = input.readUTF();
-					String result3 = input.readUTF();
-					System.out.println(result2+result3);
-					File file = new File("/Users/macbookair/Desktop/aaron2.jpg");
-					FileOutputStream fos = new FileOutputStream(file);
-					byte[] inputBytes = new byte[1743506];
-					int length =0;
-					while((length=input.read(inputBytes,0,inputBytes.length))>0){
-						fos.write(inputBytes,0,length);
-						fos.flush();
-					}
-					System.out.println("read success");
+				i=1;
+				JSONObject Fetch = new JSONObject();
+				JSONObject resource = new JSONObject();
+				resource.put("name", "");
+				resource.put("channel", "");
+				resource.put("description", "");
+				resource.put("uri", "");
+				resource.put("owner", "");
+				resource.put("ezserver", null);
+				resource.put("tags", new ArrayList<String>());
+				Fetch.put("resourceTemplate", resource);
+				while(i<args.length){
+					Fetch = parse(args[i],args[i+1],Fetch);
+					i+=2;
+				}	
+				Fetch.put("command", "FETCH");
+				System.out.println(Fetch.toJSONString());
+
+				output.writeUTF(Fetch.toJSONString());
+				output.flush();	
+				System.out.println("Received from server:");
+				String result2 = input.readUTF();
+				String result3 = input.readUTF();
+			//	String result4  = input.readUTF();
+				System.out.println(result2+result3);
+				
+				File file = new File("/Users/macbookair/Desktop/newFile");
+				FileOutputStream fos = new FileOutputStream(file);
+				byte[] inputBytes = new byte[3743507];
+				int length =0;
+				while((length=input.read(inputBytes,0,inputBytes.length))>0){
+					fos.write(inputBytes,0,length);
+					fos.flush();
 				}
 				break;
 			case "-PUBLISH":
 			//	PublishClient r = new PublishClient();
 				i=1;
-				JSONObject resource  = new JSONObject();
+				resource  = new JSONObject();
 				JSONObject Publish = new JSONObject();
 				resource = new JSONObject();
 				resource.put("name", "");
@@ -180,6 +162,7 @@ public class EZClient {
 					i+=2;
 				}	
 				Remove.put("command", "REMOVE");
+				//((JSONObject)Remove.get("resource")).put("channel", "");
 				System.out.println(Remove.toJSONString());
 				output.writeUTF(Remove.toJSONString());
 				output.flush();
@@ -191,15 +174,15 @@ public class EZClient {
 				System.out.println("Invalid args input!");
 				break;
 			}
-			
+			if(!args[0].equals("FETCH")){
 			System.out.println("Received from server:");
-		//	while(true){
-				  //if(input.available()>0){
+			while(true){
+				  if(input.available()>0){
 						String result = input.readUTF();	
 						System.out.println(result);
-					//}
+					}
 				  
-					//}
+					}}
 			
 		}
 	}
@@ -210,6 +193,7 @@ public class EZClient {
 			JSONObject r = (JSONObject) json.get("resourceTemplate");
 			if(r==null){ r = (JSONObject) json.get("resource");}
 			r.put("ezserver", s2);	
+			break;
 		
 		case "-channel":
 			 r = (JSONObject) json.get("resourceTemplate");
@@ -244,7 +228,18 @@ public class EZClient {
 			json.put("secret", s2);
 			break;
 		case "-servers":
-			
+		    String[] aa = s2.split("\\,"); 
+		    ArrayList<JSONObject> a = (ArrayList<JSONObject>) json.get("serverList");
+		    for (int i = 0 ; i <aa.length ; i++ ) {
+		    	String[] aaa = aa[i].split("\\:");
+		    	if(aaa.length==2){
+		    		JSONObject j = new JSONObject();
+		    		j.put("hostname", aaa[0]);
+		    		j.put("port", Integer.parseInt(aaa[1]));
+		    		a.add(j);
+		    	}
+		    }
+		    json.put("serverList", a);
 			break;
 		case "-tags":
 			
