@@ -12,11 +12,11 @@ import org.json.simple.JSONObject;
 public class EZClient {
 
 	
-	private static int port = 3781;
+	private static int port = 3780;
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		// TODO Auto-generated method stub
 
-		try(Socket socket = new Socket("sunrise.cis.unimelb.edu.au",port);){
+		try(Socket socket = new Socket("localhost",port);){
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 			int len = args.length;
@@ -101,14 +101,17 @@ public class EZClient {
 				i=1;
 				resource  = new JSONObject();
 				JSONObject Publish = new JSONObject();
-				resource = new JSONObject();
-				resource.put("name", "");
+				ArrayList<String> tags = new ArrayList<String>();
+				tags.add("web");
+				tags.add("html");
+				//resource = new JSONObject();
+				resource.put("name", "Unimelb website");
 				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
+				resource.put("description", "The main page for the University of Melbourne");
+				resource.put("uri", "http://www.unimelb.edu.au");
 				resource.put("owner", "");
 				resource.put("ezserver", null);
-				resource.put("tags", new ArrayList<String>());
+				resource.put("tags", tags);
 				Publish.put("resource", resource);
 				while(i<args.length){
 					Publish = parse(args[i],args[i+1],Publish);

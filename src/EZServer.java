@@ -69,6 +69,19 @@ public class EZServer {
 						result2.put("resultSize", result.size()-1);
 						output.writeUTF(result2.toJSONString());
 					}
+					else if (command.get("command").equals("PUBLISH")) {
+						//System.out.println(result.toJSONString());
+						System.out.println(result.toJSONString());
+						result.remove("response");
+						System.out.println(result.toJSONString());
+						for (int i = 0; i < result.size(); i++) {
+							output.writeUTF(result.get("result"+i).toString());
+						}
+						for(Resource re1:resourceManager.getServerResources()) {
+							System.out.println(re1.getName());
+							System.out.println(re1.getDescription());
+						}
+					}
 					else {
 						output.writeUTF(result.toJSONString());
 						output.flush();	
@@ -118,12 +131,10 @@ public class EZServer {
 			ArrayList<JSONObject> outcomeJSON;
 			
 			// query object to handle publish command
-			PublishServer publishObject = new PublishServer(resource);
+			PublishServer publishObject = new PublishServer(resource, resourceManager);
 			outcomeJSON = publishObject.publish();
 			
 			// respond with the outcome of the operation
-			results.put("PUBLISH RESPONSE","success");
-			
 			for (int i = 0; i < outcomeJSON.size(); i++) {
 				results.put("result"+i, outcomeJSON.get(i));
 			}
@@ -153,15 +164,6 @@ public class EZServer {
 			ArrayList<JSONObject> resourcesJSONFormat;
 			
 			boolean relay = (boolean)command.get("relay");
-			
-			/*String name =resource.get("name").toString();
-			String tags = resource.get("tags").toString();
-			String description = resource.get("description").toString();
-			String uri = resource.get("uri").toString();
-			String channel = resource.get("channel").toString();
-			String owner = resource.get("owner").toString();
-			String ezserver = resource.get("ezserver").toString();
-			results.put("QUERY RESPONSE","success");*/
 			
 			resourcesJSONFormat = queryObject.query(resource);
 			
