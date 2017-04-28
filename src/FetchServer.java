@@ -9,6 +9,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
 
@@ -28,7 +30,21 @@ public class FetchServer {
 	
 	
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
+		
+		// 
+		// this segment shows the initialization of Logger
+		//
+		// src/logging.properties records the homemade logging rules including logging format
+		// this should be done ahead of creating a logger instance
+		System.setProperty("java.util.logging.config.file", "src/logging.properties");
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		// use setlevel function to control logging level
+		// set level to Level.ALL/Level.OFF to turn on/off debug mode
+		//logger.setLevel(Level.ALL);
+		logger.fine("Init");
+		logger.warning("Init");
+		
+		
 		ServerSocketFactory factory = ServerSocketFactory.getDefault();
 		try(ServerSocket server = factory.createServerSocket(port)){
 			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
