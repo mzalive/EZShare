@@ -35,7 +35,7 @@ public class FetchServer {
 		// this segment shows the initialization of Logger
 		//
 		// src/logging.properties records the homemade logging rules including logging format
-		// this should be done ahead of creating a logger instance
+		// this should be done only once ahead of creating the first logger instance
 		System.setProperty("java.util.logging.config.file", "src/logging.properties");
 		Logger logger = Logger.getLogger(FetchServer.class.getName());
 		// use setlevel function to control logging level
@@ -91,23 +91,27 @@ public class FetchServer {
 	
 	@SuppressWarnings("unchecked")
 	public static void fetch(JSONObject resourceTemplate, DataOutputStream output) {
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		
 		JSONObject result = new JSONObject();
 		ArrayList<String> tags = new ArrayList<String>();
 		URI uri = null;
 	    String channel = "";
 	    
 		// validate resourceTemplate
-	    System.out.println("validate resourceTemplate");
+	    logger.info("validating resourceTemplate");
 		if (resourceTemplate == null) {
 			returnErrorMsg(result, output, "missing resourceTemplate");
+			logger.warning("resourceTemplate does not exist, exit.");
 			return;
 		}
-		
+		logger.info(resourceTemplate.toString());
 		// extract key from resourceTemplate
 		// only channel & uri relevant
-		System.out.println("extract key from resourceTemplate");
+		logger.info("extracting key from resourceTemplate");
 		if (resourceTemplate.containsKey("channel"))
 			channel = resourceTemplate.get("channel").toString();
+		
 		try {
 			// TODO handle invalid uri
 			if (resourceTemplate.containsKey("uri")) {
@@ -115,19 +119,19 @@ public class FetchServer {
 				String scheme = uri.getScheme();
 				if (!scheme.equals("file")) {
 					returnErrorMsg(result, output, "invalid resourceTemplate");
+					logger.warning("invalid resourceTemplate, exit.");
 					return;
 				}
 			}
 		} catch (URISyntaxException e) {
 			returnErrorMsg(result, output, "missing resourceTemplate");
+			logger.warning("resourceTemplate does not exist, exit.");
 			return;
 		}
 		
 		// fetch resource
 		
-		System.out.println(resourceManager.getServerResources().get(0).toJSON().toJSONString());
-		System.out.println(uri.toString());
-		System.out.println("fetch resource");
+		logger.info("fetching resource");
 		Resource resource = resourceManager.getServerResource(channel, uri.toString());
 		File f = new File(uri.getPath());
 		if (resource == null || !f.exists()) {
@@ -143,6 +147,7 @@ public class FetchServer {
 			output.writeUTF(resourceJson.toJSONString());
 			
 			// Start transmission
+			logger.fine("Start transmission");
 			RandomAccessFile byteFile = new RandomAccessFile(f, "r");
 			byte[] sendingBuffer = new byte[1024*1024];
 			int num;
