@@ -154,21 +154,9 @@ public class EZServer {
 					break;		
 					
 				case "QUERY":
-					resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
-					
-					// query server object to handle queries
-					QueryServer queryObject = new QueryServer(resourceManager);
-					ArrayList<JSONObject> resourcesJSONFormat;
-					
 					boolean relay = (boolean)clientCommand.get("relay");
-					
-					resourcesJSONFormat = queryObject.query(resourceTemplate);
-					JSONObject response = new JSONObject();
-					RespondUtil.returnSuccessMsg(output);
-					for (int i = 0; i < resourcesJSONFormat.size(); i++)
-						output.writeUTF(resourcesJSONFormat.get(i).toJSONString());
-					results.put("resultSize", resourcesJSONFormat.size());
-					output.writeUTF(results.toJSONString());
+					QueryServer queryServer = new QueryServer(clientCommand, resourceManager, output, clientID, relay);
+					queryServer.query();
 					break;
 					
 				case "FETCH":

@@ -72,7 +72,7 @@ public class Resource {
 		json.put("channel", channel);
 		json.put("owner", owner);
 		json.put("uri", uri);
-//		json.put("ezserver", ezserver);
+		json.put("ezserver", ezserver);
 		
 		return json;
 	}
