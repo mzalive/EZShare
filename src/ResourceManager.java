@@ -29,14 +29,46 @@ public class ResourceManager {
 	}
 	
 	public void addResource(Resource r) {
+		removeResource(r.getOwner(), r.getChannel(), r.getUri());
 		serverResources.add(r);
 	}
+	
 	public Resource getServerResource(String channel, String uri) {
 		for (Resource r: serverResources) {
 			if (r.getChannel().equals(channel) && r.getUri().equals(uri))
 				return r;
 		}
 		return null;
+	}
+	
+	public Resource getServerResource(String owner, String channel, String uri) {
+		for (Resource r: serverResources) {
+			if (r.getOwner().equals(owner) && r.getChannel().equals(channel) && r.getUri().equals(uri))
+				return r;
+		}
+		return null;
+	}
+	
+	public boolean isResourceExist(String owner, String channel, String uri) {
+		for (Resource r: serverResources) {
+			if (r.getOwner().equals(owner) && r.getChannel().equals(channel) && r.getUri().equals(uri))
+				return true;
+		}
+		return false;
+	}
+	
+	public boolean removeResource(String owner, String channel, String uri) {
+		if (!isResourceExist(owner, channel, uri))
+			return false;
+		else
+		for (int i=0; i<serverResources.size(); i++) {
+			Resource r = serverResources.get(i);
+			if (r.getOwner().equals(owner) && r.getChannel().equals(channel) && r.getUri().equals(uri)) {
+				serverResources.remove(i);
+				return true;
+			}
+		}
+		return false;
 	}
 	
 }
