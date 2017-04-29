@@ -251,11 +251,14 @@ public class EZClient {
 		    json.put("serverList", a);
 			break;
 		case "-tags":
+			r = (JSONObject) json.get("resourceTemplate");
+			if(r==null){ r = (JSONObject) json.get("resource");}
 		    String[] bb = s2.split("\\,"); 
-		    ArrayList<String> b = (ArrayList<String>) json.get("tags");
+		    ArrayList<String> b = (ArrayList<String>) r.get("tags");
+		    System.out.println(b.size());
 		    if(bb.length>0){
 		    for (int i = 0 ; i <bb.length ; i++ ) {
-		    	
+		    	System.out.println(bb[i]);
 		    		b.add(bb[i]);
 		    	
 		    }}

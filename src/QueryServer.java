@@ -45,9 +45,9 @@ public class QueryServer {
 				if(!resourceTemplate.get("owner").equals(r.getOwner())) 
 					stillCandidate = false;
 			}
-			
+
 			// if template provides tags, check if we still have a candidate
-			if (!templateTags.equals("")) {
+			if (!templateTags.toString().equals("[]")) {
 				for (String t : templateTags){ if (!resourceTags.contains(t)) { stillCandidate = false; } }
 			}
 			

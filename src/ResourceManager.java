@@ -9,6 +9,7 @@ public class ResourceManager {
 	private File folder = new File("resources");
 	private File[] serverResourceFiles = folder.listFiles();
 	private ArrayList<Resource> serverResources = new ArrayList<>(); // store files in memory via ArrayList
+	private ArrayList<String> tagsArray = new ArrayList<>();
 	
 	// construct Resource objects for each file
 	public ResourceManager(String ezServer, String serverPort) {
@@ -17,6 +18,8 @@ public class ResourceManager {
 			Resource r = new Resource("file://" + serverResourceFiles[i].toURI().getRawPath());
 			r.setName(serverResourceFiles[i].getName());
 			r.setEzserver(ezServer+":"+serverPort);
+			tagsArray.add("html");
+			r.setTags(tagsArray);
 			serverResources.add(r);
 		}
 	}
