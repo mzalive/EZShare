@@ -1,13 +1,17 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
@@ -34,7 +38,12 @@ public class EZServer {
 	public static void main(String[] args) {
 
 		// init logger
-		System.setProperty("java.util.logging.config.file", "logging.properties");
+		try {
+			LogManager.getLogManager().readConfiguration(EZServer.class.getClassLoader().getResourceAsStream("logging.properties"));
+		} catch (SecurityException | IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		Logger logger = Logger.getLogger(EZServer.class.getName());
 
 		// handle args
