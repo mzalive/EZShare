@@ -1,20 +1,12 @@
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
-import javax.net.ServerSocketFactory;
-
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 public class ShareServer {
 	
@@ -32,8 +24,6 @@ public class ShareServer {
 		this.server_secret = server_secret;
 	}
 
-	
-	@SuppressWarnings("unchecked")
 	public void share() {
 		Logger logger = Logger.getLogger(FetchServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
