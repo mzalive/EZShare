@@ -48,7 +48,19 @@ public class QueryServer {
 
 			// if template provides tags, check if we still have a candidate
 			if (!templateTags.toString().equals("[]")) {
-				for (String t : templateTags){ if (!resourceTags.contains(t)) { stillCandidate = false; } }
+				String tempStr;
+				for (int i = 0; i < templateTags.size(); i++) {
+					for (int k = 0; k < resourceTags.size(); k++) {
+						
+						tempStr = templateTags.get(i).substring(1, templateTags.get(i).length()-1);
+						if (tempStr.equals(resourceTags.get(k).toString())) {
+							break;
+						}
+						if(k + 1 == resourceTags.size()) {
+							stillCandidate = false;
+						}
+					}
+				}
 			}
 			
 			// if template provides owner, check if we still have a candidate
