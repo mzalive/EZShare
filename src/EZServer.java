@@ -118,6 +118,8 @@ public class EZServer {
 		JSONObject results = new JSONObject();
 		JSONParser parser = new JSONParser();
 		
+		JSONObject resourceTemplate = new JSONObject();
+		
 		
 		try(Socket clientSocket = client){
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
@@ -132,7 +134,18 @@ public class EZServer {
 				
 				switch (command) {
 				case "PUBLISH":
+					resourceTemplate = (JSONObject) clientCommand.get("resource");
+					ArrayList<JSONObject> outcomeJSON;
 					
+					// query object to handle publish command
+					PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
+					outcomeJSON = publishObject.publish();
+					
+					// respond with the outcome of the operation
+					for (int i = 0; i < outcomeJSON.size(); i++) {
+						results.put("result"+i, outcomeJSON.get(i));
+					}
+					output.writeUTF(results.toJSONString());
 					break;
 					
 				case "REMOVE":
@@ -144,7 +157,7 @@ public class EZServer {
 					break;		
 					
 				case "QUERY":
-					JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
+					resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
 					
 					// query server object to handle queries
 					QueryServer queryObject = new QueryServer(resourceManager);
@@ -152,10 +165,9 @@ public class EZServer {
 					
 					boolean relay = (boolean)clientCommand.get("relay");
 					
-					resourcesJSONFormat = queryObject.query(resource);
+					resourcesJSONFormat = queryObject.query(resourceTemplate);
 					JSONObject response = new JSONObject();
-					response.put("response", "success");
-					output.writeUTF(response.toJSONString());
+					returnSuccessMsg(output);
 					for (int i = 0; i < resourcesJSONFormat.size(); i++)
 						output.writeUTF(resourcesJSONFormat.get(i).toJSONString());
 					results.put("resultSize", resourcesJSONFormat.size());
@@ -174,6 +186,8 @@ public class EZServer {
 					clientSocket.close();
 					break;
 				}
+				
+				clientSocket.close();
 				
 			}
 		}
@@ -197,7 +211,7 @@ public class EZServer {
 		// validate resourceTemplate
 	    logger.info(loggerPrefix + "validating resourceTemplate");
 		if (clientCommand.get("resourceTemplate") == null) {
-			returnErrorMsg(result, output, "missing resourceTemplate");
+			returnErrorMsg(output, "missing resourceTemplate");
 			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
 			return;
 		}
@@ -215,13 +229,13 @@ public class EZServer {
 				uri = new URI(resourceTemplate.get("uri").toString());
 				String scheme = uri.getScheme();
 				if (!scheme.equals("file")) {
-					returnErrorMsg(result, output, "invalid resourceTemplate");
+					returnErrorMsg(output, "invalid resourceTemplate");
 					logger.warning(loggerPrefix + "invalid resourceTemplate, exit.");
 					return;
 				}
 			}
 		} catch (URISyntaxException e) {
-			returnErrorMsg(result, output, "missing resourceTemplate");
+			returnErrorMsg(output, "missing resourceTemplate");
 			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
 			return;
 		}
@@ -270,9 +284,25 @@ public class EZServer {
 	 *  method for returning error msg
 	 */
 	@SuppressWarnings("unchecked")
-	private static void returnErrorMsg(JSONObject result, DataOutputStream output, String msg) {
+	private static void returnErrorMsg(DataOutputStream output, String msg) {
+		JSONObject result = new JSONObject();
 		result.put("response", "error");
 		result.put("errorMessage", msg);
+		try {
+			output.writeUTF(result.toJSONString());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return;
+	}	
+	
+	/*
+	 *  method for returning success msg
+	 */
+	@SuppressWarnings("unchecked")
+	private static void returnSuccessMsg(DataOutputStream output) {
+		JSONObject result = new JSONObject();
+		result.put("response", "success");
 		try {
 			output.writeUTF(result.toJSONString());
 		} catch (IOException e) {
