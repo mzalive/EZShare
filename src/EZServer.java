@@ -167,7 +167,21 @@ timer.schedule(new MyTask(resourceManager), 1000, 10000);
 					break;
 
 				case "EXCHANGE":
-
+				ArrayList<JSONObject> e = (ArrayList<JSONObject>) command.get("serverList");
+				// get the serverlist and visit each JSONObject in them for exchanging
+				ExchangeServer es = new ExchangeServer(resourceManager);
+				JSONObject[] resultArray = new JSONObject[e.size()];
+				int len = 0;
+				JSONObject result = new JSONObject();
+			//	result.put("result1", e.size());
+				for (JSONObject j : e){
+					// process the IP Address for exchanging and write the response into an array.
+					JSONObject result1 = es.exchange(j);
+					resultArray[len] = result1;
+					len++;
+				}
+				result.put("response", resultArray);
+				return result;
 					break;
 				default:
 					logger.warning(loggerPrefix + "unknown command");
