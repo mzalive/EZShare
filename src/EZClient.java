@@ -15,8 +15,8 @@ public class EZClient {
 	//private static int port = 3781;
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		// TODO Auto-generated method stub
-		int port = 3781;
-		String host = "sunrise.cis.unimelb.edu.au";
+		int port = 3780;
+		String host = "localhost";
 		for(int i=0; i<args.length;i++){
 			if(args[i].equals("-host"))
 			{host=args[i+1];}
