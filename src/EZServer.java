@@ -1,16 +1,10 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -150,7 +144,8 @@ public class EZServer {
 					break;
 					
 				case "REMOVE":
-					
+					RemoveServer removeServer = new RemoveServer(clientCommand, resourceManager, output, clientID, secret);
+					removeServer.remove();
 					break;
 					
 				case "SHARE":
