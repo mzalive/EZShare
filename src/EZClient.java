@@ -217,7 +217,7 @@ public class EZClient {
 				System.out.println("Invalid args input!");
 				break;
 			}
-			/* 
+			
 			if(!args[0].equals("FETCH")){
 			System.out.println("Received from server:");
 			while(true){
@@ -226,7 +226,7 @@ public class EZClient {
 						System.out.println(result);
 					}
 				  
-					}}*/
+					}}
 			
 		}
 	}

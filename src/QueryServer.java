@@ -1,6 +1,8 @@
+import java.io.DataOutputStream;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
 
@@ -10,17 +12,38 @@ public class QueryServer {
 	private ArrayList<Resource> relevantQueryResources = new ArrayList<>(); // store relevant files in memory via ArrayList
 	private ArrayList<String> templateTags = null;
 	private ArrayList<String> resourceTags = null;
-	boolean stillCandidate = true;
+	private boolean stillCandidate = true;
+	private DataOutputStream output;
+	private JSONObject clientCommand;
+	private int clientID;
+	private boolean relay;
 	
-	public QueryServer(ResourceManager r) {
-		resourceManager = r;
+	public QueryServer(JSONObject clientCommand, ResourceManager resourceManager, DataOutputStream output, int clientID, boolean relay) {
+		this.clientCommand = clientCommand;
+		this.resourceManager = resourceManager;
+		this.output = output;
+		this.clientID = clientID;
+		this.relay = relay;
 	}
 	
-	public ArrayList<JSONObject> query(JSONObject resourceTemplate) {
+	@SuppressWarnings("unchecked")
+	public void query() {
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		String loggerPrefix = "Client " + clientID + ": ";
 		
 		ArrayList<Resource> serverResources;
-		ArrayList<JSONObject> results = new ArrayList<>();
-		JSONObject candidateResourceTemplate;
+		JSONObject resourceTemplate = new JSONObject();
+		
+		logger.info(loggerPrefix + "relay " + (relay?"on":"off"));
+				
+		// validate resourceTemplate
+	    logger.info(loggerPrefix + "validating resourceTemplate");
+		if (clientCommand.get("resourceTemplate") == null) {
+			RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
+			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
+			return;
+		}
+		resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
 		
 		// get the stored resources on server-side
 		serverResources = resourceManager.getServerResources();
@@ -31,6 +54,7 @@ public class QueryServer {
 		templateTags = parseTags(resourceTemplate.get("tags").toString());
 		
 		for (Resource r : serverResources) {
+			logger.fine(loggerPrefix + "validating resource: " + r.toJSON().toString());
 			stillCandidate = true;
 			resourceTags = parseTags(r.getTags().toString());
 			
@@ -88,26 +112,24 @@ public class QueryServer {
 			
 			// add the candidate if found
 			if (stillCandidate) {
+				logger.fine(loggerPrefix + "candidate resource found.");
 				relevantQueryResources.add(r);
 			}
 			
 		} // end finding candidates
 		
-		
+		RespondUtil.returnSuccessMsg(output);
 		// pack matching queries into JSON format
-		for (Resource r : relevantQueryResources) {
-			candidateResourceTemplate = new JSONObject();
-			candidateResourceTemplate.put("name", r.getName());
-			candidateResourceTemplate.put("description", r.getDescription());
-			candidateResourceTemplate.put("tags", r.getTags());
-			candidateResourceTemplate.put("uri", r.getUri());
-			candidateResourceTemplate.put("channel", r.getChannel());
-			candidateResourceTemplate.put("owner", r.getOwner());
-			candidateResourceTemplate.put("ezserver", r.getEzserver());
-			results.add(candidateResourceTemplate);
-			//System.out.println(candidateResourceTemplate.toString());
+		try {
+			for (Resource r : relevantQueryResources) 
+				output.writeUTF(r.toJSON().toJSONString());
+			JSONObject resultSize = new JSONObject();
+			resultSize.put("resultSize", relevantQueryResources.size());
+			output.writeUTF(resultSize.toJSONString());
+		} catch (Exception e) {
+			// TODO: handle exception
 		}
-		return results;
+		
 	}
 	
 	private ArrayList<String> parseTags(String stringResourceTags) {
