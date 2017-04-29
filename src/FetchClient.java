@@ -40,8 +40,6 @@ public class FetchClient {
 			System.out.println(result2);
 			result2 = input.readUTF();
 			System.out.println(result2);
-			result2 = input.readUTF();
-			System.out.println(result2);
 			File file = new File("/Users/mzalive/Desktop/test.jpg");
 			FileOutputStream fos = new FileOutputStream(file);
 			JSONParser parser = new JSONParser();

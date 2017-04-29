@@ -68,7 +68,7 @@ public class FetchServer {
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
 			//System.out.println("CLIENT: "+input.readUTF());
-			output.writeUTF("Server: Hi Client "+counter+" hah!!!");
+			//output.writeUTF("Server: Hi Client "+counter+" hah!!!");
 			JSONObject results = new JSONObject();
 			
 			//results.put("response", "success");
