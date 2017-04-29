@@ -34,6 +34,11 @@ public class ResourceManager {
 	public void addResource(Resource r) {
 		serverResources.add(r);
 	}
+	
+	public void deleteResource(Resource r) {
+		serverResources.remove(r);
+	}
+	
 	public Resource getServerResource(String channel, String uri) {
 		for (Resource r: serverResources) {
 			if (r.getChannel().equals(channel) && r.getUri().equals(uri))
