@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -153,7 +154,8 @@ public class EZServer {
 					break;
 					
 				case "SHARE":
-					
+					ShareServer shareServer = new ShareServer(clientCommand, resourceManager, output, clientID, secret);
+					shareServer.share();
 					break;		
 					
 				case "QUERY":
@@ -167,7 +169,7 @@ public class EZServer {
 					
 					resourcesJSONFormat = queryObject.query(resourceTemplate);
 					JSONObject response = new JSONObject();
-					returnSuccessMsg(output);
+					RespondUtil.returnSuccessMsg(output);
 					for (int i = 0; i < resourcesJSONFormat.size(); i++)
 						output.writeUTF(resourcesJSONFormat.get(i).toJSONString());
 					results.put("resultSize", resourcesJSONFormat.size());
@@ -175,7 +177,8 @@ public class EZServer {
 					break;
 					
 				case "FETCH":
-					fetch(clientCommand, output, clientID);
+					FetchServer fetchServer = new FetchServer(clientCommand, resourceManager, output, clientID);
+					fetchServer.fetch();
 					break;
 
 				case "EXCHANGE":
@@ -193,121 +196,6 @@ public class EZServer {
 		catch(IOException | ParseException e){
 			e.printStackTrace();
 		}
-	}
-	
-	
-	@SuppressWarnings("unchecked")
-	public static void fetch(JSONObject clientCommand, DataOutputStream output, int clientID) {
-		Logger logger = Logger.getLogger(EZServer.class.getName());
-		String loggerPrefix = "Client " + clientID + ": ";
-		
-		JSONObject resourceTemplate = new JSONObject();
-		JSONObject result = new JSONObject();
-		ArrayList<String> tags = new ArrayList<String>();
-		URI uri = null;
-	    String channel = "";
-	       
-		// validate resourceTemplate
-	    logger.info(loggerPrefix + "validating resourceTemplate");
-		if (clientCommand.get("resourceTemplate") == null) {
-			returnErrorMsg(output, "missing resourceTemplate");
-			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
-			return;
-		}
-		resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
-		logger.info(loggerPrefix + resourceTemplate.toString());
-		// extract key from resourceTemplate
-		// only channel & uri relevant
-		logger.info(loggerPrefix + "extracting key from resourceTemplate");
-		if (resourceTemplate.containsKey("channel"))
-			channel = resourceTemplate.get("channel").toString();
-		
-		try {
-			// TODO handle invalid uri
-			if (resourceTemplate.containsKey("uri")) {
-				uri = new URI(resourceTemplate.get("uri").toString());
-				String scheme = uri.getScheme();
-				if (!scheme.equals("file")) {
-					returnErrorMsg(output, "invalid resourceTemplate");
-					logger.warning(loggerPrefix + "invalid resourceTemplate, exit.");
-					return;
-				}
-			}
-		} catch (URISyntaxException e) {
-			returnErrorMsg(output, "missing resourceTemplate");
-			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
-			return;
-		}
-		
-		// fetch resource
-		
-		logger.info(loggerPrefix + "fetching resource");
-		Resource resource = resourceManager.getServerResource(channel, uri.toString());
-		File f = new File(uri.getPath());
-		if (resource == null || !f.exists()) {
-			System.out.println("no match resource");
-		} else try {
-			// respond
-			result.put("response", "success");
-			output.writeUTF(result.toJSONString());
-			
-			
-			JSONObject resourceJson = resource.toJSON();
-			resourceJson.put("resourceSize", f.length());
-			output.writeUTF(resourceJson.toJSONString());
-			
-			// Start transmission
-			logger.fine(loggerPrefix + "Start transmission");
-			RandomAccessFile byteFile = new RandomAccessFile(f, "r");
-			byte[] sendingBuffer = new byte[1024*1024];
-			int num;
-			while ((num = byteFile.read(sendingBuffer)) > 0) {
-				output.write(Arrays.copyOf(sendingBuffer, num));
-			}
-			byteFile.close();
-			logger.fine(loggerPrefix + "Transmission finished");
-			
-			// resultSize
-			// TODO resultSize always be 1?
-			JSONObject resultSize = new JSONObject();
-			resultSize.put("resultSize", 1);
-			output.writeUTF(resultSize.toJSONString());
-			
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-			
-	}
-	
-	/*
-	 *  method for returning error msg
-	 */
-	@SuppressWarnings("unchecked")
-	private static void returnErrorMsg(DataOutputStream output, String msg) {
-		JSONObject result = new JSONObject();
-		result.put("response", "error");
-		result.put("errorMessage", msg);
-		try {
-			output.writeUTF(result.toJSONString());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return;
-	}	
-	
-	/*
-	 *  method for returning success msg
-	 */
-	@SuppressWarnings("unchecked")
-	private static void returnSuccessMsg(DataOutputStream output) {
-		JSONObject result = new JSONObject();
-		result.put("response", "success");
-		try {
-			output.writeUTF(result.toJSONString());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return;
 	}
 	
 		
@@ -409,11 +297,14 @@ public class EZServer {
 	 * for generate server secret
 	 */
 	private static String secretGen(int length) {  
-	    StringBuilder builder = new StringBuilder(length);  
+	    String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";  
+	    Random random = new Random();  
+	    StringBuffer buf = new StringBuffer();  
 	    for (int i = 0; i < length; i++) {  
-	        builder.append((char) (ThreadLocalRandom.current().nextInt(33, 128)));  
+	        int num = random.nextInt(62);  
+	        buf.append(str.charAt(num));  
 	    }  
-	    return builder.toString();  
+	    return buf.toString();  
 	}  
 	
 }
