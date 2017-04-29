@@ -7,7 +7,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.cert.PKIXRevocationChecker.Option;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
@@ -39,7 +38,7 @@ public class EZServer {
 		
 		// init logger
 		System.setProperty("java.util.logging.config.file", "src/logging.properties");
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		Logger logger = Logger.getLogger(EZServer.class.getName());
 		
 		// handle args
 		Options options = new Options();
@@ -113,7 +112,7 @@ public class EZServer {
 	}
 
 	private static void serveClient(Socket client, int clientID){
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		Logger logger = Logger.getLogger(EZServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 		
 		JSONObject results = new JSONObject();
@@ -145,7 +144,19 @@ public class EZServer {
 					break;		
 					
 				case "QUERY":
+					JSONObject resource = (JSONObject) clientCommand.get("resource");
+					ArrayList<JSONObject> outcomeJSON;
 					
+					// query object to handle publish command
+					PublishServer publishObject = new PublishServer(resource, resourceManager);
+					outcomeJSON = publishObject.publish();
+					
+					// respond with the outcome of the operation
+					for (int i = 0; i < outcomeJSON.size(); i++) {
+						results.put("result"+i, outcomeJSON.get(i));
+					}
+					
+					output.writeUTF(results.toJSONString());
 					break;
 					
 				case "FETCH":
@@ -157,6 +168,7 @@ public class EZServer {
 					break;
 				default:
 					logger.warning(loggerPrefix + "unknown command");
+					clientSocket.close();
 					break;
 				}
 				
@@ -170,7 +182,7 @@ public class EZServer {
 	
 	@SuppressWarnings("unchecked")
 	public static void fetch(JSONObject clientCommand, DataOutputStream output, int clientID) {
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		Logger logger = Logger.getLogger(EZServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 		
 		JSONObject resourceTemplate = new JSONObject();
