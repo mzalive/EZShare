@@ -10,5 +10,7 @@
 	<classpathentry kind="lib" path="src/lib/ezmorph-1.0.3.jar"/>
 	<classpathentry kind="lib" path="src/lib/json-lib-2.2.3-jdk15.jar"/>
 	<classpathentry kind="lib" path="src/lib/json-simple-1.1.jar"/>
+	<classpathentry kind="lib" path="src/lib/commons-cli-1.4-javadoc.jar"/>
+	<classpathentry kind="lib" path="src/lib/commons-cli-1.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
