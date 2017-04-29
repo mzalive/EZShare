@@ -421,16 +421,8 @@ public class EZServer {
 	}
 
 }
-// define a timer thread class for exchanging periodically
-class MyTask extends TimerTask {
-	// define variables
-	public ArrayList<JSONObject> serverList;
-	public ServerSocket socket;
-	public ResourceManager resourceManager;
-	public DataOutputStream output;
-	public DataInputStream input;
 
-	// constructor method
+// constructor method
 	public MyTask(ResourceManager resourceManager) throws UnknownHostException, IOException{
 		//this.socket = socket;
 		this.resourceManager = resourceManager;
