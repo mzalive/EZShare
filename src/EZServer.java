@@ -144,19 +144,19 @@ public class EZServer {
 					break;		
 					
 				case "QUERY":
-					JSONObject resource = (JSONObject) clientCommand.get("resource");
-					ArrayList<JSONObject> outcomeJSON;
+					JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
 					
-					// query object to handle publish command
-					PublishServer publishObject = new PublishServer(resource, resourceManager);
-					outcomeJSON = publishObject.publish();
+					// query server object to handle queries
+					QueryServer queryObject = new QueryServer(resourceManager);
+					ArrayList<JSONObject> resourcesJSONFormat;
 					
-					// respond with the outcome of the operation
-					for (int i = 0; i < outcomeJSON.size(); i++) {
-						results.put("result"+i, outcomeJSON.get(i));
+					boolean relay = (boolean)clientCommand.get("relay");
+					
+					resourcesJSONFormat = queryObject.query(resource);
+					
+					for (int i = 0; i < resourcesJSONFormat.size(); i++) {
+						results.put("result"+i, resourcesJSONFormat.get(i));
 					}
-					
-					output.writeUTF(results.toJSONString());
 					break;
 					
 				case "FETCH":
