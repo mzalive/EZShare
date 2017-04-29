@@ -1,188 +1,375 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.cert.PKIXRevocationChecker.Option;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 public class EZServer {
 
+	private static String hostname = "localhost";
 	private static int port = 3780;
+	private static int connection_interval = 600;
+	private static int exchange_interval = 600;
+	private static String secret;
 	private static int counter =0;
 	private static ResourceManager resourceManager; // resource manager handles all server resources
 	
-		public static void main(String[] args) {
-			// TODO Auto-generated method stub
-			ServerSocketFactory factory = ServerSocketFactory.getDefault();
-			try(ServerSocket server = factory.createServerSocket(port)){
-				resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
-				System.out.println("Waiting for client connection.");
-				while(true){
-					Socket client = server.accept();
-					counter++;
-					System.out.println("Client "+counter+": "+"Applying for connection!");
-					Thread t = new Thread(()->serveClient(client));
-					t.start();
-				}
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	public static void main(String[] args) {
+		
+		// init logger
+		System.setProperty("java.util.logging.config.file", "src/logging.properties");
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		
+		// handle args
+		Options options = new Options();
+		options.addOption("advertisedhostname", true, "advertised hostname");
+		options.addOption("connectionintervallimit", true,"connection interval limit in seconds");
+		options.addOption("exchangeinterval", true,"exchange interval in seconds");
+		options.addOption("port", true,"server port, an integer");
+		options.addOption("secret", true,"secret");
+		options.addOption("debug", false, "print debug information");
+		options.addOption("h","help", false, "show usage");
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cLine = null;
+		try {
+		    cLine = parser.parse(options, args);
+		} catch (org.apache.commons.cli.ParseException e) {
+		    System.out.println("Unexpected exception:" + e.getMessage());
 		}
+		if (cLine.hasOption("h")) {
+			HelpFormatter hformatter = new HelpFormatter();
+            hformatter.printHelp("EZServer", options);
+            return;
+		}
+		if (cLine.hasOption("debug")) {
+			logger.setLevel(Level.ALL);
+			logger.info("debug mode on");
+		} else logger.setLevel(Level.OFF);
+		
+		if (cLine.hasOption("advertisedhostname")) {
+			hostname = cLine.getOptionValue("advertisedhostname");
+			logger.info("set advertised hostname : " + hostname);
+		} else logger.info("no assigned advertised hostname, using default : " + hostname);
+			
+		if (cLine.hasOption("connectionintervallimit")) {
+			connection_interval = Integer.valueOf(cLine.getOptionValue("connectionintervallimit"));
+			logger.info("set connection interval limit : " + connection_interval + "s");
+		} else logger.info("no assigned connection interval limit, using default : " + connection_interval + "s");
+		
+		if (cLine.hasOption("exchangeinterval")) {
+			exchange_interval = Integer.valueOf(cLine.getOptionValue("exchangeinterval"));
+			logger.info("set exchange interval limit : " + exchange_interval + "s");
+		} else logger.info("no assigned exchange interval limit, using default : " + exchange_interval + "s");
 
-	private static void serveClient(Socket client){
+		if (cLine.hasOption("port")) {
+			port = Integer.valueOf(cLine.getOptionValue("port"));
+			logger.info("set port : " + port + "s");
+		} else logger.info("no assigned port, using default : " + port);
+
+		if (cLine.hasOption("secret")) {
+			secret = cLine.getOptionValue("secret");
+			logger.info("set secret : " + secret + "s");
+		} else {
+			secret = secretGen(32);
+			logger.info("no assigned secret, auto generate : " + secret);
+		}
+				
+		
+		ServerSocketFactory factory = ServerSocketFactory.getDefault();
+		try(ServerSocket server = factory.createServerSocket(port)){
+			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
+			logger.fine("Server established, standing by.");
+			while(true){
+				Socket client = server.accept();
+				counter++;
+				logger.info("Incoming connection from client " + counter + ", starting new thread");
+				Thread t = new Thread(()->serveClient(client, counter));
+				t.start();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void serveClient(Socket client, int clientID){
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		String loggerPrefix = "Client " + clientID + ": ";
+		
+		JSONObject results = new JSONObject();
+		JSONParser parser = new JSONParser();
+		
+		
 		try(Socket clientSocket = client){
-			JSONParser parser = new JSONParser();
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			//System.out.println("CLIENT: "+input.readUTF());
-			output.writeUTF("Server: Hi Client "+counter+" hah!!!");
-			JSONObject results = new JSONObject();
 			
-			//results.put("response", "success");
-			//output.writeUTF(results.toJSONString());
-			//Receive more data
-			while(true){
-				if(input.available()>0){
-					JSONObject command = (JSONObject)parser.parse(input.readUTF());
-		
-					System.out.println("COMMAND RECEIVED: " + command.toJSONString());
-					// JSONObject result1 = parseCommand(command);
-					JSONObject result = parseCommand(command);
-			      //  results.put("responses", "success");
+			if(input.available() > 0){
+				JSONObject clientCommand = (JSONObject)parser.parse(input.readUTF());
+				logger.info(loggerPrefix + "original request: " + clientCommand.toJSONString());
+				
+				String command = clientCommand.get("command").toString();
+				logger.info(loggerPrefix + "command rcvd: " + command);
+				
+				switch (command) {
+				case "PUBLISH":
 					
-					// handle output for QUERY command
-					JSONObject result2 = new JSONObject();
-					if (command.get("command").equals("QUERY")) {
-						//System.out.println(result.toJSONString());
-						result2.put("response", result.get("response").toString());
-						output.writeUTF(result2.toJSONString());
-						for (int i = 0; i < result.size()-1; i++) {
-							output.writeUTF(result.get("result"+i).toString());
-						}
-						result2.clear();
-						result2.put("resultSize", result.size()-1);
-						output.writeUTF(result2.toJSONString());
-					}
-					else if (command.get("command").equals("PUBLISH")) {
-						//System.out.println(result.toJSONString());
-						System.out.println(result.toJSONString());
-						result.remove("response");
-						System.out.println(result.toJSONString());
-						for (int i = 0; i < result.size(); i++) {
-							output.writeUTF(result.get("result"+i).toString());
-						}
-						for(Resource re1:resourceManager.getServerResources()) {
-							System.out.println(re1.getName());
-							System.out.println(re1.getDescription());
-						}
-					}
-					else {
-						output.writeUTF(result.toJSONString());
-						output.flush();	
-					}
+					break;
+					
+				case "REMOVE":
+					
+					break;
+					
+				case "SHARE":
+					
+					break;		
+					
+				case "QUERY":
+					
+					break;
+					
+				case "FETCH":
+					fetch(clientCommand, output, clientID);
+					break;
+
+				case "EXCHANGE":
+					
+					break;
+				default:
+					logger.warning(loggerPrefix + "unknown command");
+					break;
 				}
+				
 			}
 		}
 		catch(IOException | ParseException e){
 			e.printStackTrace();
 		}
 	}
+	
+	
+	@SuppressWarnings("unchecked")
+	public static void fetch(JSONObject clientCommand, DataOutputStream output, int clientID) {
+		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		String loggerPrefix = "Client " + clientID + ": ";
 		
-	private static JSONObject parseCommand(JSONObject command){
-		JSONObject results = new JSONObject();
-        results.put("response", "success");
-
-		switch((String) command.get("command")){
-		case "REMOVE":{
-			JSONObject resource = (JSONObject) command.get("resource");
-			String name =resource.get("name").toString();
-			String tags = resource.get("tags").toString();
-			String description = resource.get("description").toString();
-			String uri = resource.get("uri").toString();
-			String channel = resource.get("channel").toString();
-			String owner = resource.get("owner").toString();
-			String ezserver = resource.get("ezserver").toString();
-			results.put("REMOVE RESPONSE","success");
-			return results;
+		JSONObject resourceTemplate = new JSONObject();
+		JSONObject result = new JSONObject();
+		ArrayList<String> tags = new ArrayList<String>();
+		URI uri = null;
+	    String channel = "";
+	       
+		// validate resourceTemplate
+	    logger.info(loggerPrefix + "validating resourceTemplate");
+		if (clientCommand.get("resourceTemplate") == null) {
+			returnErrorMsg(result, output, "missing resourceTemplate");
+			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
+			return;
 		}
+		resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
+		logger.info(loggerPrefix + resourceTemplate.toString());
+		// extract key from resourceTemplate
+		// only channel & uri relevant
+		logger.info(loggerPrefix + "extracting key from resourceTemplate");
+		if (resourceTemplate.containsKey("channel"))
+			channel = resourceTemplate.get("channel").toString();
 		
-		case "SHARE":{
-			JSONObject resource = (JSONObject) command.get("resource");
-            String secret =(String)command.get("secret");
-			String name =resource.get("name").toString();
-			String tags = resource.get("tags").toString();
-			String description = resource.get("description").toString();
-			String uri = resource.get("uri").toString();
-			String channel = resource.get("channel").toString();
-			String owner = resource.get("owner").toString();
-			String ezserver = resource.get("ezserver").toString();
-			results.put("SHARE RESPONSE","success");
-			return results;
-		}
-		
-		case "PUBLISH":{
-			JSONObject resource = (JSONObject) command.get("resource");
-			ArrayList<JSONObject> outcomeJSON;
-			
-			// query object to handle publish command
-			PublishServer publishObject = new PublishServer(resource, resourceManager);
-			outcomeJSON = publishObject.publish();
-			
-			// respond with the outcome of the operation
-			for (int i = 0; i < outcomeJSON.size(); i++) {
-				results.put("result"+i, outcomeJSON.get(i));
+		try {
+			// TODO handle invalid uri
+			if (resourceTemplate.containsKey("uri")) {
+				uri = new URI(resourceTemplate.get("uri").toString());
+				String scheme = uri.getScheme();
+				if (!scheme.equals("file")) {
+					returnErrorMsg(result, output, "invalid resourceTemplate");
+					logger.warning(loggerPrefix + "invalid resourceTemplate, exit.");
+					return;
+				}
 			}
-			
-			return results;
+		} catch (URISyntaxException e) {
+			returnErrorMsg(result, output, "missing resourceTemplate");
+			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
+			return;
 		}
 		
-		case "FETCH":{
-			System.out.println("Fetching!");
-			JSONObject resourceTemplate = (JSONObject) command.get("resourceTemplate");
-			String name =resourceTemplate.get("name").toString();
-			String tags = resourceTemplate.get("tags").toString();
-			String description = resourceTemplate.get("description").toString();
-			String uri = resourceTemplate.get("uri").toString();
-			String channel = resourceTemplate.get("channel").toString();
-			String owner = resourceTemplate.get("owner").toString();
-			String ezserver = resourceTemplate.get("ezserver").toString();
-			results.put("FETCH RESPONSE","success");
-			return results;
-		}
+		// fetch resource
 		
-		case "QUERY":{
-			JSONObject resource = (JSONObject) command.get("resourceTemplate");
+		logger.info(loggerPrefix + "fetching resource");
+		Resource resource = resourceManager.getServerResource(channel, uri.toString());
+		File f = new File(uri.getPath());
+		if (resource == null || !f.exists()) {
+			System.out.println("no match resource");
+		} else try {
+			// respond
+			result.put("response", "success");
+			output.writeUTF(result.toJSONString());
 			
-			// query server object to handle queries
-			QueryServer queryObject = new QueryServer(resourceManager);
-			ArrayList<JSONObject> resourcesJSONFormat;
 			
-			boolean relay = (boolean)command.get("relay");
+			JSONObject resourceJson = resource.toJSON();
+			resourceJson.put("resourceSize", f.length());
+			output.writeUTF(resourceJson.toJSONString());
 			
-			resourcesJSONFormat = queryObject.query(resource);
-			
-			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
-				results.put("result"+i, resourcesJSONFormat.get(i));
+			// Start transmission
+			logger.fine(loggerPrefix + "Start transmission");
+			RandomAccessFile byteFile = new RandomAccessFile(f, "r");
+			byte[] sendingBuffer = new byte[1024*1024];
+			int num;
+			while ((num = byteFile.read(sendingBuffer)) > 0) {
+				output.write(Arrays.copyOf(sendingBuffer, num));
 			}
+			byteFile.close();
+			logger.fine(loggerPrefix + "Transmission finished");
 			
-			return results;
-		} 
-		
-		case "EXCHANGE":{
-			break;
-		}
-		
-		default:			try{
-			throw new Exception();
-		}catch(Exception e){
+			// resultSize
+			// TODO resultSize always be 1?
+			JSONObject resultSize = new JSONObject();
+			resultSize.put("resultSize", 1);
+			output.writeUTF(resultSize.toJSONString());
+			
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
+			
+	}
+	
+	/*
+	 *  method for returning error msg
+	 */
+	@SuppressWarnings("unchecked")
+	private static void returnErrorMsg(JSONObject result, DataOutputStream output, String msg) {
+		result.put("response", "error");
+		result.put("errorMessage", msg);
+		try {
+			output.writeUTF(result.toJSONString());
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		return results;	
-	}}
+		return;
+	}
+	
+		
+//	private static JSONObject parseCommand(JSONObject command){
+//		JSONObject results = new JSONObject();
+//        results.put("response", "success");
+//
+//		switch((String) command.get("command")){
+//		case "REMOVE":{
+//			JSONObject resource = (JSONObject) command.get("resource");
+//			String name =resource.get("name").toString();
+//			String tags = resource.get("tags").toString();
+//			String description = resource.get("description").toString();
+//			String uri = resource.get("uri").toString();
+//			String channel = resource.get("channel").toString();
+//			String owner = resource.get("owner").toString();
+//			String ezserver = resource.get("ezserver").toString();
+//			results.put("REMOVE RESPONSE","success");
+//			return results;
+//		}
+//		
+//		case "SHARE":{
+//			JSONObject resource = (JSONObject) command.get("resource");
+//            String secret =(String)command.get("secret");
+//			String name =resource.get("name").toString();
+//			String tags = resource.get("tags").toString();
+//			String description = resource.get("description").toString();
+//			String uri = resource.get("uri").toString();
+//			String channel = resource.get("channel").toString();
+//			String owner = resource.get("owner").toString();
+//			String ezserver = resource.get("ezserver").toString();
+//			results.put("SHARE RESPONSE","success");
+//			return results;
+//		}
+//		
+//		case "PUBLISH":{
+//			JSONObject resource = (JSONObject) command.get("resource");
+//			ArrayList<JSONObject> outcomeJSON;
+//			
+//			// query object to handle publish command
+//			PublishServer publishObject = new PublishServer(resource, resourceManager);
+//			outcomeJSON = publishObject.publish();
+//			
+//			// respond with the outcome of the operation
+//			for (int i = 0; i < outcomeJSON.size(); i++) {
+//				results.put("result"+i, outcomeJSON.get(i));
+//			}
+//			
+//			return results;
+//		}
+//		
+//		case "FETCH":{
+//			System.out.println("Fetching!");
+//			JSONObject resourceTemplate = (JSONObject) command.get("resourceTemplate");
+//			String name =resourceTemplate.get("name").toString();
+//			String tags = resourceTemplate.get("tags").toString();
+//			String description = resourceTemplate.get("description").toString();
+//			String uri = resourceTemplate.get("uri").toString();
+//			String channel = resourceTemplate.get("channel").toString();
+//			String owner = resourceTemplate.get("owner").toString();
+//			String ezserver = resourceTemplate.get("ezserver").toString();
+//			results.put("FETCH RESPONSE","success");
+//			return results;
+//		}
+//		
+//		case "QUERY":{
+//			JSONObject resource = (JSONObject) command.get("resourceTemplate");
+//			
+//			// query server object to handle queries
+//			QueryServer queryObject = new QueryServer(resourceManager);
+//			ArrayList<JSONObject> resourcesJSONFormat;
+//			
+//			boolean relay = (boolean)command.get("relay");
+//			
+//			resourcesJSONFormat = queryObject.query(resource);
+//			
+//			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
+//				results.put("result"+i, resourcesJSONFormat.get(i));
+//			}
+//			
+//			return results;
+//		} 
+//		
+//		case "EXCHANGE":{
+//			break;
+//		}
+//		
+//		default:			try{
+//			throw new Exception();
+//		}catch(Exception e){
+//			e.printStackTrace();
+//		}
+//		}
+//		return results;	
+//	}
+	
+	/*
+	 * Large ramdon string generator
+	 * for generate server secret
+	 */
+	private static String secretGen(int length) {  
+	    StringBuilder builder = new StringBuilder(length);  
+	    for (int i = 0; i < length; i++) {  
+	        builder.append((char) (ThreadLocalRandom.current().nextInt(33, 128)));  
+	    }  
+	    return builder.toString();  
+	}  
+	
+}
