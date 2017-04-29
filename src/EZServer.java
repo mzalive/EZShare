@@ -124,7 +124,7 @@ public class EZServer {
 		try(Socket clientSocket = client){
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			
+			while (true) {
 			if(input.available() > 0){
 				JSONObject clientCommand = (JSONObject)parser.parse(input.readUTF());
 				logger.info(loggerPrefix + "original request: " + clientCommand.toJSONString());
@@ -187,9 +187,8 @@ public class EZServer {
 					break;
 				}
 				
-				clientSocket.close();
-				
 			}
+		}
 		}
 		catch(IOException | ParseException e){
 			e.printStackTrace();
