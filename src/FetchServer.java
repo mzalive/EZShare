@@ -19,96 +19,47 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import net.sf.json.JSON;
+
 
 
 public class FetchServer {
-	
-	private static int port = 3780;
-	private static int counter =0;
-	private static ResourceManager resourceManager; // resource manager handles all server resources
-	
-	
-	
-	public static void main(String[] args) {
-		
-		// 
-		// this segment shows the initialization of Logger
-		//
-		// src/logging.properties records the homemade logging rules including logging format
-		// this should be done only once ahead of creating the first logger instance
-		System.setProperty("java.util.logging.config.file", "src/logging.properties");
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
-		// use setlevel function to control logging level
-		// set level to Level.ALL/Level.OFF to turn on/off debug mode
-		//logger.setLevel(Level.ALL);
-		logger.fine("Init");
-		logger.warning("Init");
-		
-		
-		ServerSocketFactory factory = ServerSocketFactory.getDefault();
-		try(ServerSocket server = factory.createServerSocket(port)){
-			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
-			System.out.println("Waiting for client connection.");
-			while(true){
-				Socket client = server.accept();
-				counter++;
-				System.out.println("Client "+counter+": "+"Applying for connection!");
-				Thread t = new Thread(()->serveClient(client));
-				t.start();
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	int clientID;
+	DataOutputStream output;
+	JSONObject clientCommand;
+	ResourceManager resourceManager; // resource manager handles all server resources
+
+	public FetchServer (JSONObject clientCommand, ResourceManager resourceManager, DataOutputStream output, int clientID) {
+		this.clientCommand = clientCommand;
+		this.resourceManager = resourceManager;
+		this.output = output;
+		this.clientID = clientID;
 	}
-	
-	private static void serveClient(Socket client){
-		try(Socket clientSocket = client){
-			JSONParser parser = new JSONParser();
-			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			//System.out.println("CLIENT: "+input.readUTF());
-			//output.writeUTF("Server: Hi Client "+counter+" hah!!!");
-			JSONObject results = new JSONObject();
-			
-			//results.put("response", "success");
-			//output.writeUTF(results.toJSONString());
-			//Receive more data
-			while(true){
-				if(input.available()>0){
-					JSONObject command = (JSONObject)parser.parse(input.readUTF());
-		
-					System.out.println("COMMAND RECEIVED: " + command.toJSONString());
-					// JSONObject result1 = parseCommand(command);
-					fetch((JSONObject)command.get("resourceTemplate"), output);
-				}
-			}
-		}
-		catch(IOException | ParseException e){
-			e.printStackTrace();
-		}
-	}
+
 	
 	@SuppressWarnings("unchecked")
-	public static void fetch(JSONObject resourceTemplate, DataOutputStream output) {
+	public void fetch() {
 		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		String loggerPrefix = "Client " + clientID + ": ";
 		
+		JSONObject resourceTemplate = new JSONObject();
 		JSONObject result = new JSONObject();
 		ArrayList<String> tags = new ArrayList<String>();
 		URI uri = null;
 	    String channel = "";
 	    
 		// validate resourceTemplate
-	    logger.info("validating resourceTemplate");
-		if (resourceTemplate == null) {
-			returnErrorMsg(result, output, "missing resourceTemplate");
-			logger.warning("resourceTemplate does not exist, exit.");
+	    logger.info(loggerPrefix + "validating resourceTemplate");
+		if (clientCommand.get("resourceTemplate") == null) {
+			RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
+			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
 			return;
 		}
-		logger.info(resourceTemplate.toString());
+		resourceTemplate = (JSONObject) clientCommand.get("resourceTemplate");
+		logger.info(loggerPrefix + resourceTemplate.toString());
 		// extract key from resourceTemplate
 		// only channel & uri relevant
-		logger.info("extracting key from resourceTemplate");
+		logger.info(loggerPrefix + "extracting key from resourceTemplate");
 		if (resourceTemplate.containsKey("channel"))
 			channel = resourceTemplate.get("channel").toString();
 		
@@ -118,20 +69,20 @@ public class FetchServer {
 				uri = new URI(resourceTemplate.get("uri").toString());
 				String scheme = uri.getScheme();
 				if (!scheme.equals("file")) {
-					returnErrorMsg(result, output, "invalid resourceTemplate");
-					logger.warning("invalid resourceTemplate, exit.");
+					RespondUtil.returnErrorMsg(output, "invalid resourceTemplate");
+					logger.warning(loggerPrefix + "invalid resourceTemplate, exit.");
 					return;
 				}
 			}
 		} catch (URISyntaxException e) {
-			returnErrorMsg(result, output, "missing resourceTemplate");
-			logger.warning("resourceTemplate does not exist, exit.");
+			RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
+			logger.warning(loggerPrefix + "resourceTemplate does not exist, exit.");
 			return;
 		}
 		
 		// fetch resource
 		
-		logger.info("fetching resource");
+		logger.info(loggerPrefix + "fetching resource");
 		Resource resource = resourceManager.getServerResource(channel, uri.toString());
 		File f = new File(uri.getPath());
 		if (resource == null || !f.exists()) {
@@ -147,7 +98,7 @@ public class FetchServer {
 			output.writeUTF(resourceJson.toJSONString());
 			
 			// Start transmission
-			logger.fine("Start transmission");
+			logger.fine(loggerPrefix + "Start transmission");
 			RandomAccessFile byteFile = new RandomAccessFile(f, "r");
 			byte[] sendingBuffer = new byte[1024*1024];
 			int num;
@@ -155,6 +106,7 @@ public class FetchServer {
 				output.write(Arrays.copyOf(sendingBuffer, num));
 			}
 			byteFile.close();
+			logger.fine(loggerPrefix + "Transmission finished");
 			
 			// resultSize
 			// TODO resultSize always be 1?
@@ -168,17 +120,17 @@ public class FetchServer {
 			
 	}
 	
-	// private method for returning error msg
-	@SuppressWarnings("unchecked")
-	private static void returnErrorMsg(JSONObject result, DataOutputStream output, String msg) {
-		result.put("response", "error");
-		result.put("errorMessage", msg);
-		try {
-			output.writeUTF(result.toJSONString());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return;
-	}
+	// 
+	// this segment shows the initialization of Logger
+	//
+	// src/logging.properties records the homemade logging rules including logging format
+	// this should be done only once ahead of creating the first logger instance
+	// System.setProperty("java.util.logging.config.file", "src/logging.properties");
+	// Logger logger = Logger.getLogger(FetchServer.class.getName());
+	// use setlevel function to control logging level
+	// set level to Level.ALL/Level.OFF to turn on/off debug mode
+	// logger.setLevel(Level.ALL);
+	// logger.fine("Init");
+	// logger.warning("Init");
 
 }

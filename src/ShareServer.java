@@ -18,82 +18,44 @@ import org.json.simple.parser.ParseException;
 
 public class ShareServer {
 	
-	private static int port = 3780;
-	private static int counter =0;
-	private static ResourceManager resourceManager;
-	private static final String secret = "this_is_the_server_secret";
+	int clientID;
+	DataOutputStream output;
+	JSONObject clientCommand;
+	ResourceManager resourceManager;
+	String server_secret;
 	
-	
-	public static void main(String[] args) {
-		System.setProperty("java.util.logging.config.file", "src/logging.properties");
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
-		logger.info("Init");
-		
-		
-		ServerSocketFactory factory = ServerSocketFactory.getDefault();
-		try(ServerSocket server = factory.createServerSocket(port)){
-			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
-			System.out.println("Waiting for client connection.");
-			while(true){
-				Socket client = server.accept();
-				counter++;
-				System.out.println("Client "+counter+": "+"Applying for connection!");
-				Thread t = new Thread(()->serveClient(client));
-				t.start();
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public ShareServer (JSONObject clientCommand, ResourceManager resourceManager, DataOutputStream output, int clientID, String server_secret) {
+		this.clientCommand = clientCommand;
+		this.resourceManager = resourceManager;
+		this.output = output;
+		this.clientID = clientID;
+		this.server_secret = server_secret;
 	}
-	
-	private static void serveClient(Socket client){
-		try(Socket clientSocket = client){
-			JSONParser parser = new JSONParser();
-			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			//System.out.println("CLIENT: "+input.readUTF());
-			//output.writeUTF("Server: Hi Client "+counter+" hah!!!");
-			JSONObject results = new JSONObject();
-			
-			//results.put("response", "success");
-			//output.writeUTF(results.toJSONString());
-			//Receive more data
-			while(true){
-				if(input.available()>0){
-					JSONObject command = (JSONObject)parser.parse(input.readUTF());
-		
-					System.out.println("COMMAND RECEIVED: " + command.toJSONString());
-					// JSONObject result1 = parseCommand(command);
-					results = share(command, secret);
-					output.writeUTF(results.toString());
-				}
-			}
-		}
-		catch(IOException | ParseException e){
-			e.printStackTrace();
-		}
-	}
+
 	
 	@SuppressWarnings("unchecked")
-	public static JSONObject share(JSONObject clientCmd, String secret) {
-		System.setProperty("java.util.logging.config.file", "src/logging.properties");
+	public void share() {
 		Logger logger = Logger.getLogger(FetchServer.class.getName());
-		JSONObject result = new JSONObject();
+		String loggerPrefix = "Client " + clientID + ": ";
+		
 		JSONObject resource = new JSONObject();
 		String name = "", description = "", channel = "", owner = "";
 		URI uri = null;
 		ArrayList<String> tags = new ArrayList<String>();
-		if (!clientCmd.containsKey("resource") || !clientCmd.containsKey("secret")) 
-			return returnErrorMsg("missing resource and\\/or secret");
-		if (!clientCmd.get("secret").toString().equals(secret)) {
-			logger.info("Genuien Secret : " + secret);
-			logger.info("Rcvd Secrest : " + clientCmd.get("secret").toString());
-			return returnErrorMsg("incorrect secret");
+		
+		if (!clientCommand.containsKey("resource") || !clientCommand.containsKey("secret"))  {
+			RespondUtil.returnErrorMsg(output, "missing resource and\\/or secret");
+			return;
+		}
+		if (!clientCommand.get("secret").toString().equals(server_secret)) {
+			logger.info(loggerPrefix + "Genuien Secret : " + server_secret);
+			logger.info(loggerPrefix + "Rcvd Secrest : " + clientCommand.get("secret").toString());
+			RespondUtil.returnErrorMsg(output, "incorrect secret");
+			return;
 		}
 		
 		//extract resource
-		resource = (JSONObject) clientCmd.get("resource");
+		resource = (JSONObject) clientCommand.get("resource");
 		if (resource.containsKey("name"))
 	        name = resource.get("name").toString();
 	    if (resource.containsKey("tags")) {
@@ -112,33 +74,29 @@ public class ShareServer {
 		if (resource.containsKey("uri"))
 			try {
 				uri = new URI(resource.get("uri").toString());
-				if (!uri.getScheme().equals("file"))
-					return returnErrorMsg("invalid resource");
+				if (!uri.getScheme().equals("file")) {
+					RespondUtil.returnErrorMsg(output, "invalid resource");
+					return;
+				}
 				File file = new File(uri);
-				if (!file.exists())
-					return returnErrorMsg("cannot share resource");
+				if (!file.exists()) {
+					RespondUtil.returnErrorMsg(output, "cannot share resource");
+					return;
+				}
 			} catch (URISyntaxException e) {
-				return returnErrorMsg("invalid resource");
+				RespondUtil.returnErrorMsg(output, "invalid resource");
 			}
 		
 		// login the resource
 		Resource r = new Resource(name, description, tags, uri.toString(), channel, owner);
 		resourceManager.addResource(r);
-		// TODO store the resource
+		logger.fine(loggerPrefix + "resource stored");
 		
-		result.put("response", "success");
+		RespondUtil.returnSuccessMsg(output);
+		
 		for (Resource res: resourceManager.getServerResources()) {
-			logger.fine(res.toJSON().toString());
+			logger.finest(res.toJSON().toString());
 		}
-		return result;
 	}
 	
-	// private method for returning error msg
-	@SuppressWarnings("unchecked")
-	private static JSONObject returnErrorMsg(String msg) {
-		JSONObject result = new JSONObject();
-		result.put("response", "error");
-		result.put("errorMessage", msg);
-		return result;
-	}
 }
