@@ -1,12 +1,15 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Iterator;
 
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class Exchanger {
 	private static int port = 3780;
@@ -15,7 +18,7 @@ public class Exchanger {
 		this.host = host;
 		this.port = port;
 	}
-	public void exchange(ResourceManager r) throws InterruptedException  {
+	public boolean exchange(ResourceManager r,MyTask m) throws  InterruptedException, ParseException {
 		// TODO Auto-generated method stub
 			ArrayList<JSONObject> l = r.serverlist; // get the serverlist in resourceManager
 		try(Socket socket = new Socket(host,port);){ // create socket for connection
@@ -38,15 +41,22 @@ public class Exchanger {
 			
 			// if server's response interval exceed 1sec then disconnect automatically, else print response
 			while(true){
-				Thread.sleep(1000);
+				Thread.sleep(2000);
 				if(input.available()>0){
-				String result = input.readUTF();	
-				System.out.println(result);
+			//	String result = input.readUTF();
+				JSONParser parser = new JSONParser();
+				JSONObject j = (JSONObject) parser.parse(input.readUTF());
+				if(j.get("response").toString().equals("duplicated")){
+				System.out.println(j.toJSONString());
+				return false;
+				}
+				System.out.println(j.toJSONString());
 				}
 				else{
 					break;
 				}
 						}
+
 			// close socket;
 			socket.close();
 } 
@@ -62,11 +72,25 @@ public class Exchanger {
 		}
 	}
 	e.printStackTrace();
-} 
+}
+		catch (ConnectException e){
+			if(r.serverlist.size()!=0){
+			Iterator i1 = r.serverlist.iterator();
+			while(i1.hasNext()){
+			JSONObject j = (JSONObject) i1.next();
+			if(j.get("hostname").toString().equals(host)){
+				i1.remove();
+				System.out.println(host+ " :" + j.get("port").toString()+ " has been removed!");
+				return false;
+			}
+			}
+		}
+		}
 	catch (IOException e) {
 	// TODO Auto-generated catch block
 	e.printStackTrace();
-} 
+}
+		return true; 
 	
 
 }

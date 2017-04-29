@@ -1,17 +1,19 @@
-//package Aaron1;
+
 import java.util.ArrayList;
+import java.util.Iterator;
+
 import org.json.simple.JSONObject;
 
 public class ExchangeServer {
+	public ResourceManager r;
 	public ExchangeServer(ResourceManager r) {
+		this.r = r;
 	}	
 	@SuppressWarnings({ "unchecked", "null" })
 	public  JSONObject exchange(JSONObject serverlist) {
 		JSONObject result = new JSONObject();
 		JSONObject serverrecord = new JSONObject();
 		ArrayList<JSONObject> ll = new ArrayList<JSONObject>();
-		
-		
 		
 		ArrayList<String> recordhostname = new ArrayList<String>();
 		ArrayList<String> recordport = new ArrayList<String>();
@@ -57,12 +59,20 @@ public class ExchangeServer {
    		    	                   returnErrorMsg("missing resourceTemplate"); 	    	   
 		                           }			} }
  	    
-		result.put("response", "success");
-		ll.add(serverlist);	
-		serverrecord.put("serverlist",ll);
-
-			
-		return null;	
+		result.put("response", "success");	
+		Iterator i1 = r.serverlist.iterator();
+		while(i1.hasNext()){
+			JSONObject j = (JSONObject) i1.next();
+			System.out.println(j.get("hostname")+ " | "+serverlist.get("hostname")+"   "+j.get("port")+ " | "+serverlist.get("port"));
+		if(j.get("hostname").toString().equals(serverlist.get("hostname").toString() )&& j.get("port").toString().equals(serverlist.get("port").toString())){
+			System.out.println("Duplicated...");
+			//i1.remove();
+			result.put("response", "duplicated");
+			return result;
+		}
+		}
+		r.serverlist.add(serverlist);
+		return result;	
 	}	
 	
 	@SuppressWarnings("unchecked")
