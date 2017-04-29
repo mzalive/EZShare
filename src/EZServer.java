@@ -153,10 +153,13 @@ public class EZServer {
 					boolean relay = (boolean)clientCommand.get("relay");
 					
 					resourcesJSONFormat = queryObject.query(resource);
-					
-					for (int i = 0; i < resourcesJSONFormat.size(); i++) {
-						results.put("result"+i, resourcesJSONFormat.get(i));
-					}
+					JSONObject response = new JSONObject();
+					response.put("response", "success");
+					output.writeUTF(response.toJSONString());
+					for (int i = 0; i < resourcesJSONFormat.size(); i++)
+						output.writeUTF(resourcesJSONFormat.get(i).toJSONString());
+					results.put("resultSize", resourcesJSONFormat.size());
+					output.writeUTF(results.toJSONString());
 					break;
 					
 				case "FETCH":
