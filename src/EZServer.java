@@ -34,7 +34,7 @@ public class EZServer {
 	public static void main(String[] args) {
 
 		// init logger
-		System.setProperty("java.util.logging.config.file", "src/logging.properties");
+		System.setProperty("java.util.logging.config.file", "logging.properties");
 		Logger logger = Logger.getLogger(EZServer.class.getName());
 
 		// handle args
