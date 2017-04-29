@@ -35,7 +35,7 @@ public class EZClient {
 			
 			// judge the type of command
 			switch (args[0]){
-			case "-QUERY":
+			case "-query":
 				// Create Template of JSONObject for query
 				int i=1;
 				JSONObject Query = new JSONObject();
@@ -62,7 +62,7 @@ public class EZClient {
 				output.writeUTF(Query.toJSONString());
 				output.flush();
 				break;
-			case "-EXCHANGE":
+			case "-exchange":
 				ExchangeClient e = new ExchangeClient();
 				i=1;
 				JSONObject Exchange = new JSONObject();
@@ -82,7 +82,7 @@ public class EZClient {
 				output.writeUTF(Exchange.toJSONString());
 				output.flush();
 				break;
-			case "-FETCH":
+			case "-fetch":
 				i=1;
 				
 				// Create Template of JSONObject for fetch
@@ -128,7 +128,7 @@ public class EZClient {
 				}
 				break;
 				
-			case "-PUBLISH":
+			case "-publish":
 				i=1;
 				
 				// Create resource template for Publish command
@@ -157,7 +157,7 @@ public class EZClient {
 				output.writeUTF(Publish.toJSONString());
 				output.flush();
 				break;
-			case "-SHARE":
+			case "-share":
 				i=1;
 				
 				// Create JSONObject template for Sharing
@@ -185,7 +185,7 @@ public class EZClient {
 				output.writeUTF(Share.toJSONString());
 				output.flush();
 				break;
-			case "-REMOVE":
+			case "-remove":
 				i=1;
 				
 				// Create Remove template for Removing

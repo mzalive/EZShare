@@ -57,6 +57,8 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
@@ -92,9 +94,23 @@ public class RemoveServer {
 			try {
 				uri = new URI(resource.get("uri").toString());
 				if (!uri.getScheme().equals("file")) {
-					RespondUtil.returnErrorMsg(output, "invalid resource");
-					return;
-				}
+					{if(!uri.getScheme().equals("http")){
+					//	System.out.println("Scheme:"+uri.getScheme());
+						RespondUtil.returnErrorMsg(output,"invalid resource");}
+					else{
+						ArrayList<Resource> a = this.resourceManager.getServerResources();
+						Iterator<Resource> iterator = a.iterator();
+						int a1 = 0;
+						while(iterator.hasNext()){
+							Resource re = iterator.next();
+							if(re.getUri().equals(resource.get("uri"))){
+								iterator.remove();
+								a1=1;
+								break;
+							}}
+							if(a1==0){RespondUtil.returnErrorMsg(output,"missing resource");}
+							if(a1==1){RespondUtil.returnSuccessMsg(output);}
+				}}}
 				File file = new File(uri);
 				if (!file.exists()) {
 					RespondUtil.returnErrorMsg(output, "cannot remove resource");

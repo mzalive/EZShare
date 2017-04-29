@@ -5,6 +5,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -94,6 +96,8 @@ public class EZServer {
 		try(ServerSocket server = factory.createServerSocket(port)){
 			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
 			logger.fine("Server established, standing by.");
+			Timer timer = new Timer();
+			timer.schedule(new MyTask(resourceManager), 1000, 10000);
 			while(true){
 				Socket client = server.accept();
 				counter++;
@@ -107,8 +111,7 @@ public class EZServer {
 	}
 
 	private static void serveClient(Socket client, int clientID){
-		Timer timer = new Timer();
-timer.schedule(new MyTask(resourceManager), 1000, 10000);
+
 		Logger logger = Logger.getLogger(EZServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 
@@ -167,7 +170,7 @@ timer.schedule(new MyTask(resourceManager), 1000, 10000);
 					break;
 
 				case "EXCHANGE":
-				ArrayList<JSONObject> e = (ArrayList<JSONObject>) command.get("serverList");
+				ArrayList<JSONObject> e = (ArrayList<JSONObject>) clientCommand.get("serverList");
 				// get the serverlist and visit each JSONObject in them for exchanging
 				ExchangeServer es = new ExchangeServer(resourceManager);
 				JSONObject[] resultArray = new JSONObject[e.size()];
@@ -176,12 +179,14 @@ timer.schedule(new MyTask(resourceManager), 1000, 10000);
 			//	result.put("result1", e.size());
 				for (JSONObject j : e){
 					// process the IP Address for exchanging and write the response into an array.
-					JSONObject result1 = es.exchange(j);
+					JSONObject result1 = es.exchange(j,output);
 					resultArray[len] = result1;
 					len++;
 				}
 				result.put("response", resultArray);
-				return result;
+				 	for(JSONObject j : resultArray){
+				 		logger.info(j.toJSONString());
+				 	}
 					break;
 				default:
 					logger.warning(loggerPrefix + "unknown command");

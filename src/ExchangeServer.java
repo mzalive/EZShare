@@ -1,16 +1,20 @@
 
+import java.io.DataOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
 
 public class ExchangeServer {
 	public ResourceManager r;
+	public Logger logger;
 	public ExchangeServer(ResourceManager r) {
 		this.r = r;
+		this.logger = Logger.getLogger(Exchanger.class.getName());
 	}	
 	@SuppressWarnings({ "unchecked", "null" })
-	public  JSONObject exchange(JSONObject serverlist) {
+	public  JSONObject exchange(JSONObject serverlist,DataOutputStream output) {
 		JSONObject result = new JSONObject();
 		JSONObject serverrecord = new JSONObject();
 		ArrayList<JSONObject> ll = new ArrayList<JSONObject>();
@@ -23,7 +27,7 @@ public class ExchangeServer {
 		String[] slist1 = null;
 		
  	    if (serverlist == null) {
-			returnErrorMsg("missing or invalid server list"); 	    
+ 	    	RespondUtil.returnErrorMsg(output, "missing or invalid server list"); 	    
 	    	if(serverlist.containsKey("hostname")){
 		    	list = serverlist.get("hostname").toString();
 		          slist = list.split("\\s");
@@ -42,7 +46,7 @@ public class ExchangeServer {
 		                                    if(Integer.parseInt(s[2])<255)  
 		                                      if(Integer.parseInt(s[3])<255); 
 		    	                              }
-		    	                      returnErrorMsg("missing resourceTemplate"); 	
+		    	                     RespondUtil.returnErrorMsg(output, "missing resourceTemplate"); 	
 		                              }
 		             if(serverlist.containsKey("port"))
 			            list1 = serverlist.get("port").toString();
@@ -56,7 +60,7 @@ public class ExchangeServer {
 		    	               String n = recordport.get(a);
 		    	                int port = Integer.parseInt(n);
                                  if (port<0 && port>65535)
-   		    	                   returnErrorMsg("missing resourceTemplate"); 	    	   
+                                	 RespondUtil.returnErrorMsg(output, "missing resourceTemplate"); 	    	   
 		                           }			} }
  	    
 		result.put("response", "success");	
@@ -65,7 +69,7 @@ public class ExchangeServer {
 			JSONObject j = (JSONObject) i1.next();
 			System.out.println(j.get("hostname")+ " | "+serverlist.get("hostname")+"   "+j.get("port")+ " | "+serverlist.get("port"));
 		if(j.get("hostname").toString().equals(serverlist.get("hostname").toString() )&& j.get("port").toString().equals(serverlist.get("port").toString())){
-			System.out.println("Duplicated...");
+			this.logger.info("Duplicated...");
 			//i1.remove();
 			result.put("response", "duplicated");
 			return result;

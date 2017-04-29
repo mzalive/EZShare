@@ -6,6 +6,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -14,9 +15,11 @@ import org.json.simple.parser.ParseException;
 public class Exchanger {
 	private static int port = 3780;
 	public String host = "localhost";
+	private Logger logger;
 	public Exchanger(String host,int port){
 		this.host = host;
 		this.port = port;
+		this.logger = Logger.getLogger(Exchanger.class.getName());
 	}
 	public boolean exchange(ResourceManager r,MyTask m) throws  InterruptedException, ParseException {
 		// TODO Auto-generated method stub
@@ -32,12 +35,12 @@ public class Exchanger {
 			newCommand.put("command", "EXCHANGE");
 			
 			// send JSONObject command to server in the serverlist
-			System.out.println("Exchaning..."+ l.toString());
+			this.logger.info("Exchaning..."+ l.toString());
 			output.writeUTF(newCommand.toJSONString());
 			output.flush();
 			
 			// print information from server
-			System.out.println("Received from server:");
+			this.logger.info("Received from server:");
 			
 			// if server's response interval exceed 1sec then disconnect automatically, else print response
 			while(true){
@@ -47,10 +50,10 @@ public class Exchanger {
 				JSONParser parser = new JSONParser();
 				JSONObject j = (JSONObject) parser.parse(input.readUTF());
 				if(j.get("response").toString().equals("duplicated")){
-				System.out.println(j.toJSONString());
+					this.logger.info(j.toJSONString());
 				return false;
 				}
-				System.out.println(j.toJSONString());
+				this.logger.info(j.toJSONString());
 				}
 				else{
 					break;
@@ -68,7 +71,7 @@ public class Exchanger {
 		JSONObject j = (JSONObject) i.next();
 		if(j.get("hostname").toString().equals(host)){
 			i.remove();
-			System.out.println(host+ " :" + j.get("port").toString()+ " has been removed!");
+			this.logger.info(host+ " :" + j.get("port").toString()+ " has been removed!");
 		}
 	}
 	e.printStackTrace();
@@ -80,7 +83,7 @@ public class Exchanger {
 			JSONObject j = (JSONObject) i1.next();
 			if(j.get("hostname").toString().equals(host)){
 				i1.remove();
-				System.out.println(host+ " :" + j.get("port").toString()+ " has been removed!");
+				this.logger.info(host+ " :" + j.get("port").toString()+ " has been removed!");
 				return false;
 			}
 			}
