@@ -3,6 +3,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -86,6 +87,16 @@ public class PublishServer {
 				
 		// finally, store the resource
 		if (!failed) {
+		ArrayList<Resource> t = resourceManager.getServerResources();
+		Iterator<Resource> i = t.iterator();
+		while(i.hasNext()){
+			Resource r1 = i.next();
+
+			if(r1.getChannel().equals(channel) && r1.getOwner().equals(owner) && r1.getUri().equals(uri.toString())){
+
+				i.remove();
+			}
+		}
 			Resource r = new Resource(name, description, tags, uri.toString(), channel, owner);
 			resourceManager.addResource(r);
 			JSONObject jsonResult = new JSONObject();
