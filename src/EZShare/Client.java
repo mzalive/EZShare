@@ -1,3 +1,4 @@
+package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -7,20 +8,35 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-public class EZClient {
+public class Client {
 
 	public static void main(String[] args) throws UnknownHostException, IOException {
 
 		// set default host and ip address
 		int port = 3780;
 		String host = "localhost";
-		Logger logger = Logger.getLogger(EZServer.class.getName());
+		
+		// init logger
+		try {
+			LogManager.getLogManager().readConfiguration(Client.class.getClassLoader().getResourceAsStream("logging.properties"));
+		} catch (SecurityException | IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		Logger logger = Logger.getLogger(Client.class.getName());
+		for(int i=0; i<args.length; i++){
+			if(args[i].equals("-debug")){
+				logger.setLevel(Level.ALL);
+				logger.info("debug mode on");
+			} else logger.setLevel(Level.OFF);
+		}
 		// check if the host and port is set manually
 		for(int i=0; i<args.length;i++){
 			if(args[i].equals("-host"))
@@ -28,12 +44,7 @@ public class EZClient {
 			else if(args[i].equals("-port"))
 			{port=Integer.parseInt(args[i+1]);}
 		}
-		for(int i=0; i<args.length; i++){
-			if(args[i].equals("-debug")){
-				logger.setLevel(Level.ALL);
-				logger.info("debug mode on");
-			}
-		}
+		
 		//create socket for connection
 		try(Socket socket = new Socket(host,port);){
 			
@@ -67,7 +78,7 @@ public class EZClient {
 				
 				// put command into JSONObject and send it to the server
 				Query.put("command", "QUERY");
-				System.out.println(Query.toJSONString());
+				logger.info(Query.toJSONString());
 				output.writeUTF(Query.toJSONString());
 				output.flush();
 				break;
@@ -87,7 +98,7 @@ public class EZClient {
 				
 				// send the JSONObject to server
 				Exchange.put("command", "EXCHANGE");
-				System.out.println(Exchange.toJSONString());
+				logger.info(Exchange.toJSONString());
 				output.writeUTF(Exchange.toJSONString());
 				output.flush();
 				break;
@@ -114,7 +125,7 @@ public class EZClient {
 				Fetch.put("command", "FETCH");
 				
 				// print information and send JSONObject to server
-				System.out.println("SENT: "+Fetch.toJSONString());
+				logger.info("SENT: "+Fetch.toJSONString());
 				output.writeUTF(Fetch.toJSONString());
 				output.flush();	
 				
@@ -128,7 +139,7 @@ public class EZClient {
 				try {
 					JSONObject j = (JSONObject) p.parse(input.readUTF());
 					String name = j.get("uri").toString();
-					System.out.println(result2+j.toJSONString());
+					logger.info(result2+j.toJSONString());
 					  String[] aa = name.split("\\/");
 					  name = aa[aa.length-1];
 					// Receive file from server
@@ -175,7 +186,7 @@ public class EZClient {
 				
 				// send the command to server
 				Publish.put("command", "PUBLISH");
-				System.out.println(Publish.toJSONString());
+				logger.info(Publish.toJSONString());
 				output.writeUTF(Publish.toJSONString());
 				output.flush();
 				break;
@@ -203,7 +214,7 @@ public class EZClient {
 				
 				// send the share command to server
 				Share.put("command", "SHARE");
-				System.out.println(Share.toJSONString());
+				logger.info(Share.toJSONString());
 				output.writeUTF(Share.toJSONString());
 				output.flush();
 				break;
@@ -229,14 +240,14 @@ public class EZClient {
 				}	
 				// send the remove command to server
 				Remove.put("command", "REMOVE");
-				System.out.println(Remove.toJSONString());
+				logger.info(Remove.toJSONString());
 				output.writeUTF(Remove.toJSONString());
 				output.flush();
 				break;
 					
 			default:
 				// don't send any command to server
-				System.out.println("Invalid args input!");
+				logger.warning("Invalid args input!");
 				break;
 			}
 			
