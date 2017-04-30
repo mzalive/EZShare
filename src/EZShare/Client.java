@@ -22,7 +22,7 @@ public class Client {
 		// set default host and ip address
 		int port = 3780;
 		String host = "localhost";
-		
+		int arglen = args.length;
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Client.class.getClassLoader().getResourceAsStream("logging.properties"));
@@ -71,7 +71,7 @@ public class Client {
 				Query.put("resourceTemplate", resourceTemplate);
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<arglen-1){
 					Query = parse(args[i],args[i+1],Query);
 					i+=2;
 				}
@@ -91,7 +91,7 @@ public class Client {
 				Exchange.put("serverList", new ArrayList<JSONObject>());
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<arglen-1){
 					Exchange = parse(args[i],args[i+1],Exchange);
 					i+=2;
 				}
