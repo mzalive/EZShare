@@ -31,14 +31,14 @@ public class Client {
 			e1.printStackTrace();
 		}
 		Logger logger = Logger.getLogger(Client.class.getName());
-		for(int i=0; i<args.length; i++){
+		for(int i=0; i<args.length - 1; i++){
 			if(args[i].equals("-debug")){
 				logger.setLevel(Level.ALL);
 				logger.info("debug mode on");
 			} else logger.setLevel(Level.OFF);
 		}
 		// check if the host and port is set manually
-		for(int i=0; i<args.length;i++){
+		for(int i=0; i<args.length - 1;i++){
 			if(args[i].equals("-host"))
 			{host=args[i+1];}
 			else if(args[i].equals("-port"))
@@ -51,7 +51,7 @@ public class Client {
 			// get the input and output stream
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-			int len = args.length;
+			int len = args.length - 1;
 			
 			// judge the type of command
 			switch (args[0]){
@@ -71,7 +71,7 @@ public class Client {
 				Query.put("resourceTemplate", resourceTemplate);
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<args.length - 1){
 					Query = parse(args[i],args[i+1],Query);
 					i+=2;
 				}
@@ -91,7 +91,7 @@ public class Client {
 				Exchange.put("serverList", new ArrayList<JSONObject>());
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<args.length - 1){
 					Exchange = parse(args[i],args[i+1],Exchange);
 					i+=2;
 				}
@@ -118,7 +118,7 @@ public class Client {
 				Fetch.put("resourceTemplate", resource);
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<args.length - 1){
 					Fetch = parse(args[i],args[i+1],Fetch);
 					i+=2;
 				}	
@@ -179,7 +179,7 @@ public class Client {
 				Publish.put("resource", resource);
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<args.length - 1){
 					Publish = parse(args[i],args[i+1],Publish);
 					i+=2;
 				}	
@@ -207,7 +207,7 @@ public class Client {
 				Share.put("secret", "");
 				
 				// check if any args are set manually
-				while(i<args.length){
+				while(i<args.length - 1){
 					Share = parse(args[i],args[i+1],Share);
 					i+=2;
 				}
@@ -234,7 +234,7 @@ public class Client {
 				Remove.put("resource", resource);
 				
 				//check if any args are set manually
-				while(i<args.length){
+				while(i < args.length - 1){
 					Share = parse(args[i],args[i+1],Remove);
 					i+=2;
 				}	

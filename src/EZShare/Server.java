@@ -338,10 +338,6 @@ class MyTask extends TimerTask {
 	public MyTask(ResourceManager resourceManager) throws IOException{
 		//this.socket = socket;
 		this.resourceManager = resourceManager;
-		try(Socket socket = new Socket("localhost",3780);){
-			DataInputStream input = new DataInputStream(socket.getInputStream());
-			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-		}
 	}
     @Override
     public void run() {
