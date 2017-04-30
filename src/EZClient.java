@@ -127,8 +127,10 @@ public class EZClient {
 				
 				try {
 					JSONObject j = (JSONObject) p.parse(input.readUTF());
-					String name = j.get("name").toString();
+					String name = j.get("uri").toString();
 					System.out.println(result2+j.toJSONString());
+					  String[] aa = name.split("\\/");
+					  name = aa[aa.length-1];
 					// Receive file from server
 					File file = new File(name);
 					FileOutputStream fos = new FileOutputStream(file);
