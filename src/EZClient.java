@@ -6,8 +6,12 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class EZClient {
 
@@ -16,7 +20,7 @@ public class EZClient {
 		// set default host and ip address
 		int port = 3780;
 		String host = "localhost";
-		
+		Logger logger = Logger.getLogger(EZServer.class.getName());
 		// check if the host and port is set manually
 		for(int i=0; i<args.length;i++){
 			if(args[i].equals("-host"))
@@ -24,7 +28,12 @@ public class EZClient {
 			else if(args[i].equals("-port"))
 			{port=Integer.parseInt(args[i+1]);}
 		}
-		
+		for(int i=0; i<args.length; i++){
+			if(args[i].equals("-debug")){
+				logger.setLevel(Level.ALL);
+				logger.info("debug mode on");
+			}
+		}
 		//create socket for connection
 		try(Socket socket = new Socket(host,port);){
 			
@@ -112,20 +121,31 @@ public class EZClient {
 				// get message from server
 				System.out.println("RECEIVE:");
 				String result2 = input.readUTF();
-				String result3 = input.readUTF();
-				System.out.println(result2+result3);
+				//String result3 = input.readUTF();
+			//	System.out.println(result2+result3);
+				JSONParser p = new JSONParser();
 				
-				// Receive file from server
-				File file = new File("/Users/macbookair/Desktop/newFile");
-				FileOutputStream fos = new FileOutputStream(file);
-				byte[] inputBytes = new byte[1024*1024];
-				int length =0;
-				
-				// write bytes into the file
-				while((length=input.read(inputBytes,0,inputBytes.length))>0){
-					fos.write(inputBytes,0,length);
-					fos.flush();
+				try {
+					JSONObject j = (JSONObject) p.parse(input.readUTF());
+					String name = j.get("name").toString();
+					System.out.println(result2+j.toJSONString());
+					// Receive file from server
+					File file = new File(name);
+					FileOutputStream fos = new FileOutputStream(file);
+					byte[] inputBytes = new byte[1024*1024];
+					int length =0;
+					
+					// write bytes into the file
+					while((length=input.read(inputBytes,0,inputBytes.length))>0){
+						fos.write(inputBytes,0,length);
+						fos.flush();
+					}
+				} catch (ParseException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
 				}
+				
+
 				break;
 				
 			case "-publish":
@@ -218,8 +238,8 @@ public class EZClient {
 				break;
 			}
 			
-			if(!args[0].equals("FETCH")){
-			System.out.println("Received from server:");
+			if(!args[0].equals("-fetch")){
+			System.out.println("RECEIVE:");
 			while(true){
 				  if(input.available()>0){
 						String result = input.readUTF();	
