@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -236,7 +237,7 @@ public class Client {
 
 				//check if any args are set manually
 				while(i < args.length - 1){
-					Share = parse(args[i],args[i+1],Remove);
+					Remove = parse(args[i],args[i+1],Remove);
 					i+=2;
 				}
 				// send the remove command to server
@@ -245,7 +246,58 @@ public class Client {
 				output.writeUTF(Remove.toJSONString());
 				output.flush();
 				break;
+				
+			case "-subscribe":
+				 i=1;
+				JSONObject Subscribe = new JSONObject();
+				Subscribe.put("command", "SUBSCRIBE");
+				Subscribe.put("relay", false);
+				Subscribe.put("id", -1);
+				resource = new JSONObject();
+				resource.put("name", "");
+				resource.put("channel", "");
+				resource.put("description", "");
+				resource.put("uri", "");
+				resource.put("owner", "");
+				resource.put("ezserver", null);
+				resource.put("tags", new ArrayList<String>());
+				Subscribe.put("resourceTemplate", resource);
+				while(i < args.length - 1){
+					Subscribe = parse(args[i],args[i+1],Subscribe);
+					i+=2;
+				}	
+			/*	JSONObject test = new JSONObject();
+				test.put("command", "SUBSCRIBE");
+				test.put("id", 1);
+				resource = new JSONObject();
+				resource.put("name","big4");
+				resource.put("channel", "big4");
+				resource.put("owner","big4");
+				resource.put("description","big4");
+				resource.put("uri", "http://big4.com");
+				test.put("resourceTemplate", resource);
+				output.writeUTF(test.toJSONString());*/
+				logger.info(Subscribe.toJSONString());
+				output.writeUTF(Subscribe.toJSONString());
+				output.flush();
 
+				break;
+			
+			case "-unsubscribe":
+				JSONObject Unsubscribe = new JSONObject();
+				Unsubscribe.put("command", "UNSUBSCRIBE");
+				i=1;
+				while(i < args.length - 1){
+					Unsubscribe = parse(args[i],args[i+1],Unsubscribe);
+					i+=2;
+				}				
+				logger.info(Unsubscribe.toJSONString());
+				output.writeUTF(Unsubscribe.toJSONString());
+				output.flush();		
+				
+			//	-subscribe -id 1 -name "big4" -channel "big4" -owner "big4" -description "big4" -uri "http://big4.com"
+				break;
+				
 			default:
 				// don't send any command to server
 				logger.warning("Invalid args input!");
@@ -268,6 +320,9 @@ public class Client {
 		// TODO Auto-generated method stub
 		switch(s1){
 
+		case "-id":
+			json.put("id", s2);
+			break;
 		// put ezserver JSONObject
 		case "-ezserver":
 			JSONObject r = (JSONObject) json.get("resourceTemplate");

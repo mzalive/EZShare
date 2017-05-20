@@ -8,6 +8,7 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -35,7 +36,10 @@ public class Server {
 	private static String secret;
 	private static int counter =0;
 	private static ResourceManager resourceManager; // resource manager handles all server resources
-
+	static ArrayList<JSONObject> subscriptionResources = new ArrayList<JSONObject>();
+	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
+	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
+	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
 	public static void main(String[] args) {
 
 		// init logger
@@ -120,6 +124,10 @@ public class Server {
 		}
 	}
 
+	private static boolean canSubscribe(JSONObject j1, JSONObject j2){
+		return true;
+	}
+	
 	private static void serveClient(Socket client, int clientID){
 
 		Logger logger = Logger.getLogger(Server.class.getName());
@@ -150,7 +158,22 @@ public class Server {
 						// query object to handle publish command
 						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
 						outcomeJSON = publishObject.publish();
-
+						for(JSONObject j : outcomeJSON){
+							if(j.get("response").equals("success")){
+								for(JSONObject re : subscriptionResources){
+									if(canSubscribe(resourceTemplate,re)){
+										int id = resourceMap.get(re);
+										Socket socket = subscribeMap.get(id);
+										DataOutputStream out1 = (DataOutputStream)socket.getOutputStream();
+										out1.writeUTF(resourceTemplate.toJSONString());
+										out1.flush();
+										out1.close();
+										socket.close();
+									}
+								}
+							}
+						}
+						
 						// respond with the outcome of the operation
 						for (int i = 0; i < outcomeJSON.size(); i++) {
 							results.put("result"+i, outcomeJSON.get(i));
@@ -196,6 +219,35 @@ public class Server {
 						result.put("response", resultArray);
 						for(JSONObject j : resultArray){
 							logger.info(j.toJSONString());
+						}
+						break;
+						
+					case "SUBSCRIBE":
+						JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
+						subscriptionResources.add(resource);
+						resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
+						//SubscribeServer(server.accept().start());
+						int id = Integer.parseInt(clientCommand.get("id").toString());
+						subscribeMap.put(id, client);
+						unsubscribeMap.put(id, resource);
+						result = new JSONObject();
+						result.put("response", "success");
+						output.writeUTF(result.toJSONString());
+						output.flush();
+						break;
+						
+					case "UNSUBSCRIBE":
+						 id = Integer.parseInt(clientCommand.get("id").toString());
+						JSONObject j = unsubscribeMap.get(id);
+						if(subscriptionResources.contains(j)){
+							subscriptionResources.remove(j);
+							Socket socket = subscribeMap.get(id);
+							DataOutputStream out2 = new DataOutputStream(socket.getOutputStream());
+							result = new JSONObject();
+							result.put("response","success");
+							out2.writeUTF(result.toJSONString());
+							out2.flush();
+							out2.close();
 						}
 						break;
 					default:
