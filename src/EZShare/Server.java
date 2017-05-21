@@ -132,7 +132,38 @@ public class Server {
 		}
 	}
 
-	private static boolean canSubscribe(JSONObject j1, JSONObject j2){
+	private static boolean canSubscribe(JSONObject rTemplate1, JSONObject rTemplate2){
+		// rTemplate1 is client resource template and rTemplate2 is any server resource template
+		// determine if a client resource template matches the given server resource template
+		
+		// check name of the resource
+		if ( !rTemplate1.get("name").equals(rTemplate2.get("name")) )
+				return false;
+		
+		// check tags are the same
+		else if ( !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+			return false;
+		
+		// check if descriptions match
+		else if ( !rTemplate1.get("description").equals(rTemplate2.get("description")) )
+			return false;
+		
+		// check if the uri's match
+		else if ( !rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
+			return false;
+		
+		// check if the channels match
+		else if ( !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
+			return false;
+		
+		// check if the owner's are the same
+		else if ( !rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
+			return false;
+		
+		// check if ezServer matches
+		else if ( !rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
+			return false;
+		
 		return true;
 	}
 	
