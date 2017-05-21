@@ -35,9 +35,21 @@ public class Resource {
 		this.uri = uri;
 		this.channel = channel;
 		this.owner = owner;
-		this.ezserver = "";
+		this.ezserver = null;
 	}
 
+	public Resource(String uri, String channel, String owner) {
+		//returns a resource object with only primary key 
+		super();
+		this.name = "";
+		this.description = "";
+		this.tags = new ArrayList<String>();
+		this.uri = uri;
+		this.channel = channel;
+		this.owner = owner;
+		this.ezserver = null;
+	}
+	
 	public Resource(String uri) {
 		//returns a resource object with minimum information 
 		super();
@@ -62,6 +74,7 @@ public class Resource {
 		this.ezserver = null;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public JSONObject toJSON() {
 		JSONObject json = new JSONObject();
 		JSONArray tag_array = new JSONArray();

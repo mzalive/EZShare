@@ -2,11 +2,8 @@ package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Timer;
@@ -22,9 +19,11 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
 
 public class Server {
 
@@ -41,10 +40,7 @@ public class Server {
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Server.class.getClassLoader().getResourceAsStream("logging.properties"));
-		} catch (SecurityException | IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
 		Logger logger = Logger.getLogger(Server.class.getName());
 
 		// handle args
@@ -59,14 +55,14 @@ public class Server {
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cLine = null;
 		try {
-		    cLine = parser.parse(options, args);
+			cLine = parser.parse(options, args);
 		} catch (org.apache.commons.cli.ParseException e) {
-		    logger.warning("Unexpected exception:" + e.getMessage());
+			logger.warning("Unexpected exception:" + e.getMessage());
 		}
 		if (cLine.hasOption("h")) {
 			HelpFormatter hformatter = new HelpFormatter();
-            hformatter.printHelp("EZShare Server", options);
-            return;
+			hformatter.printHelp("EZShare Server", options);
+			return;
 		}
 		if (cLine.hasOption("debug")) {
 			logger.setLevel(Level.ALL);
@@ -90,12 +86,12 @@ public class Server {
 
 		if (cLine.hasOption("port")) {
 			port = Integer.valueOf(cLine.getOptionValue("port"));
-			logger.info("set port : " + port + "s");
+			logger.info("set port : " + port);
 		} else logger.info("no assigned port, using default : " + port);
 
 		if (cLine.hasOption("secret")) {
 			secret = cLine.getOptionValue("secret");
-			logger.info("set secret : " + secret + "s");
+			logger.info("set secret : " + secret);
 		} else {
 			secret = secretGen(32);
 			logger.info("no assigned secret, auto generate : " + secret);
@@ -120,21 +116,20 @@ public class Server {
 		}
 	}
 
-	private static void serveClient(Socket client, int clientID){
+	private static void serveClient(Socket clientSocket, int clientID){
 
 		Logger logger = Logger.getLogger(Server.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 
-		JSONObject results = new JSONObject();
 		JSONParser parser = new JSONParser();
 
-		JSONObject resourceTemplate = new JSONObject();
+		boolean keepAlive = true;
 
+		try {
 
-		try(Socket clientSocket = client){
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			while (true) {
+			while (keepAlive) {
 				if(input.available() > 0){
 					JSONObject clientCommand = (JSONObject)parser.parse(input.readUTF());
 					logger.info(loggerPrefix + "original request: " + clientCommand.toJSONString());
@@ -144,43 +139,47 @@ public class Server {
 
 					switch (command) {
 					case "PUBLISH":
-						resourceTemplate = (JSONObject) clientCommand.get("resource");
-						ArrayList<JSONObject> outcomeJSON;
 
 						// query object to handle publish command
-						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
-						outcomeJSON = publishObject.publish();
-
-						// respond with the outcome of the operation
-						for (int i = 0; i < outcomeJSON.size(); i++) {
-							results.put("result"+i, outcomeJSON.get(i));
-						}
-						output.writeUTF(results.toJSONString());
+						PublishServer publishServer = new PublishServer(clientCommand, resourceManager, output, clientID);
+						publishServer.publish();
+						keepAlive = false;
 						break;
 
 					case "REMOVE":
 						RemoveServer removeServer = new RemoveServer(clientCommand, resourceManager, output, clientID, secret);
 						removeServer.remove();
+						keepAlive = false;
 						break;
 
 					case "SHARE":
 						ShareServer shareServer = new ShareServer(clientCommand, resourceManager, output, clientID, secret);
 						shareServer.share();
+						keepAlive = false;
 						break;
 
 					case "QUERY":
 						boolean relay = (boolean)clientCommand.get("relay");
 						QueryServer queryServer = new QueryServer(clientCommand, resourceManager, output, clientID, relay);
 						queryServer.query();
+						keepAlive = false;
 						break;
 
 					case "FETCH":
 						FetchServer fetchServer = new FetchServer(clientCommand, resourceManager, output, clientID);
 						fetchServer.fetch();
+						keepAlive = false;
 						break;
 
 					case "EXCHANGE":
-						ArrayList<JSONObject> e = (ArrayList<JSONObject>) clientCommand.get("serverList");
+						JSONArray jsonArray = (JSONArray) clientCommand.get("serverList");
+						ArrayList<JSONObject> e = new ArrayList<JSONObject>();
+						if (jsonArray != null) { 
+							for (int i=0; i<jsonArray.size(); i++){ 
+								e.add((JSONObject) jsonArray.get(i));
+							} 
+						} 
+
 						// get the serverlist and visit each JSONObject in them for exchanging
 						ExchangeServer es = new ExchangeServer(resourceManager);
 						JSONObject[] resultArray = new JSONObject[e.size()];
@@ -206,119 +205,123 @@ public class Server {
 
 				}
 			}
-		}
-		catch(IOException | ParseException e){
-			e.printStackTrace();
+			
+			clientSocket.close();
+			logger.info(loggerPrefix + "Disconnect.");;
+		} catch (IOException | ParseException e) {
+			logger.warning(loggerPrefix + "Unexpected exception");
 		}
 	}
 
 
-//	private static JSONObject parseCommand(JSONObject command){
-//		JSONObject results = new JSONObject();
-//        results.put("response", "success");
-//
-//		switch((String) command.get("command")){
-//		case "REMOVE":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//			String name =resource.get("name").toString();
-//			String tags = resource.get("tags").toString();
-//			String description = resource.get("description").toString();
-//			String uri = resource.get("uri").toString();
-//			String channel = resource.get("channel").toString();
-//			String owner = resource.get("owner").toString();
-//			String ezserver = resource.get("ezserver").toString();
-//			results.put("REMOVE RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "SHARE":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//            String secret =(String)command.get("secret");
-//			String name =resource.get("name").toString();
-//			String tags = resource.get("tags").toString();
-//			String description = resource.get("description").toString();
-//			String uri = resource.get("uri").toString();
-//			String channel = resource.get("channel").toString();
-//			String owner = resource.get("owner").toString();
-//			String ezserver = resource.get("ezserver").toString();
-//			results.put("SHARE RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "PUBLISH":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//			ArrayList<JSONObject> outcomeJSON;
-//
-//			// query object to handle publish command
-//			PublishServer publishObject = new PublishServer(resource, resourceManager);
-//			outcomeJSON = publishObject.publish();
-//
-//			// respond with the outcome of the operation
-//			for (int i = 0; i < outcomeJSON.size(); i++) {
-//				results.put("result"+i, outcomeJSON.get(i));
-//			}
-//
-//			return results;
-//		}
-//
-//		case "FETCH":{
-//			System.out.println("Fetching!");
-//			JSONObject resourceTemplate = (JSONObject) command.get("resourceTemplate");
-//			String name =resourceTemplate.get("name").toString();
-//			String tags = resourceTemplate.get("tags").toString();
-//			String description = resourceTemplate.get("description").toString();
-//			String uri = resourceTemplate.get("uri").toString();
-//			String channel = resourceTemplate.get("channel").toString();
-//			String owner = resourceTemplate.get("owner").toString();
-//			String ezserver = resourceTemplate.get("ezserver").toString();
-//			results.put("FETCH RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "QUERY":{
-//			JSONObject resource = (JSONObject) command.get("resourceTemplate");
-//
-//			// query server object to handle queries
-//			QueryServer queryObject = new QueryServer(resourceManager);
-//			ArrayList<JSONObject> resourcesJSONFormat;
-//
-//			boolean relay = (boolean)command.get("relay");
-//
-//			resourcesJSONFormat = queryObject.query(resource);
-//
-//			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
-//				results.put("result"+i, resourcesJSONFormat.get(i));
-//			}
-//
-//			return results;
-//		}
-//
-//		case "EXCHANGE":{
-//			break;
-//		}
-//
-//		default:			try{
-//			throw new Exception();
-//		}catch(Exception e){
-//			e.printStackTrace();
-//		}
-//		}
-//		return results;
-//	}
+
+
+	//	private static JSONObject parseCommand(JSONObject command){
+	//		JSONObject results = new JSONObject();
+	//        results.put("response", "success");
+	//
+	//		switch((String) command.get("command")){
+	//		case "REMOVE":{
+	//			JSONObject resource = (JSONObject) command.get("resource");
+	//			String name =resource.get("name").toString();
+	//			String tags = resource.get("tags").toString();
+	//			String description = resource.get("description").toString();
+	//			String uri = resource.get("uri").toString();
+	//			String channel = resource.get("channel").toString();
+	//			String owner = resource.get("owner").toString();
+	//			String ezserver = resource.get("ezserver").toString();
+	//			results.put("REMOVE RESPONSE","success");
+	//			return results;
+	//		}
+	//
+	//		case "SHARE":{
+	//			JSONObject resource = (JSONObject) command.get("resource");
+	//            String secret =(String)command.get("secret");
+	//			String name =resource.get("name").toString();
+	//			String tags = resource.get("tags").toString();
+	//			String description = resource.get("description").toString();
+	//			String uri = resource.get("uri").toString();
+	//			String channel = resource.get("channel").toString();
+	//			String owner = resource.get("owner").toString();
+	//			String ezserver = resource.get("ezserver").toString();
+	//			results.put("SHARE RESPONSE","success");
+	//			return results;
+	//		}
+	//
+	//		case "PUBLISH":{
+	//			JSONObject resource = (JSONObject) command.get("resource");
+	//			ArrayList<JSONObject> outcomeJSON;
+	//
+	//			// query object to handle publish command
+	//			PublishServer publishObject = new PublishServer(resource, resourceManager);
+	//			outcomeJSON = publishObject.publish();
+	//
+	//			// respond with the outcome of the operation
+	//			for (int i = 0; i < outcomeJSON.size(); i++) {
+	//				results.put("result"+i, outcomeJSON.get(i));
+	//			}
+	//
+	//			return results;
+	//		}
+	//
+	//		case "FETCH":{
+	//			System.out.println("Fetching!");
+	//			JSONObject resourceTemplate = (JSONObject) command.get("resourceTemplate");
+	//			String name =resourceTemplate.get("name").toString();
+	//			String tags = resourceTemplate.get("tags").toString();
+	//			String description = resourceTemplate.get("description").toString();
+	//			String uri = resourceTemplate.get("uri").toString();
+	//			String channel = resourceTemplate.get("channel").toString();
+	//			String owner = resourceTemplate.get("owner").toString();
+	//			String ezserver = resourceTemplate.get("ezserver").toString();
+	//			results.put("FETCH RESPONSE","success");
+	//			return results;
+	//		}
+	//
+	//		case "QUERY":{
+	//			JSONObject resource = (JSONObject) command.get("resourceTemplate");
+	//
+	//			// query server object to handle queries
+	//			QueryServer queryObject = new QueryServer(resourceManager);
+	//			ArrayList<JSONObject> resourcesJSONFormat;
+	//
+	//			boolean relay = (boolean)command.get("relay");
+	//
+	//			resourcesJSONFormat = queryObject.query(resource);
+	//
+	//			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
+	//				results.put("result"+i, resourcesJSONFormat.get(i));
+	//			}
+	//
+	//			return results;
+	//		}
+	//
+	//		case "EXCHANGE":{
+	//			break;
+	//		}
+	//
+	//		default:			try{
+	//			throw new Exception();
+	//		}catch(Exception e){
+	//			e.printStackTrace();
+	//		}
+	//		}
+	//		return results;
+	//	}
 
 	/*
 	 * Large ramdon string generator
 	 * for generate server secret
 	 */
 	private static String secretGen(int length) {
-	    String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	    Random random = new Random();
-	    StringBuffer buf = new StringBuffer();
-	    for (int i = 0; i < length; i++) {
-	        int num = random.nextInt(62);
-	        buf.append(str.charAt(num));
-	    }
-	    return buf.toString();
+		String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+		Random random = new Random();
+		StringBuffer buf = new StringBuffer();
+		for (int i = 0; i < length; i++) {
+			int num = random.nextInt(62);
+			buf.append(str.charAt(num));
+		}
+		return buf.toString();
 	}
 
 }
@@ -339,44 +342,44 @@ class MyTask extends TimerTask {
 		//this.socket = socket;
 		this.resourceManager = resourceManager;
 	}
-    @Override
-    public void run() {
-    	Logger logger = Logger.getLogger(MyTask.class.getName());
-    	int i;
-    	// loop each serverresource in the resourceManager class and try to exchange it with current server record
-    	int len = resourceManager.serverlist.size();
-    	if(len>0){
-    		for(i=0; i<len; i++){
-    			if(resourceManager.serverlist.size()==0){
-    				break;
-    			}
-    			JSONObject j1 =resourceManager.serverlist.get(i);
+	@Override
+	public void run() {
+		Logger logger = Logger.getLogger(MyTask.class.getName());
+		int i;
+		// loop each serverresource in the resourceManager class and try to exchange it with current server record
+		int len = resourceManager.serverlist.size();
+		if(len>0){
+			for(i=0; i<len; i++){
+				if(resourceManager.serverlist.size()==0){
+					break;
+				}
+				JSONObject j1 =resourceManager.serverlist.get(i);
 
-    			// get the hostname and port
-    			String hostname = j1.get("hostname").toString();
-    			int port = Integer.parseInt(j1.get("port").toString());
+				// get the hostname and port
+				String hostname = j1.get("hostname").toString();
+				int port = Integer.parseInt(j1.get("port").toString());
 
-    			// Use exchanger class to exchange
-    			Exchanger e = new Exchanger(hostname,port);
-    			try {
+				// Use exchanger class to exchange
+				Exchanger e = new Exchanger(hostname,port);
+				try {
 
-    				try {
-    					if(!e.exchange(resourceManager,this)){i--;}
-    				} catch (ParseException e1) {
-    					e1.printStackTrace();
-    				}
+					try {
+						if(!e.exchange(resourceManager,this)){i--;}
+					} catch (ParseException e1) {
+						e1.printStackTrace();
+					}
 
-    			}
-    			catch (InterruptedException e1) {
-    				e1.printStackTrace();
-    			}
-    		}
-    		// print information after finished
-    		logger.fine("Finished Exchanging!");
-    	} else {
-    		logger.warning("No available server on the list");
-    	}
+				}
+				catch (InterruptedException e1) {
+					e1.printStackTrace();
+				}
+			}
+			// print information after finished
+			logger.fine("Finished Exchanging!");
+		} else {
+			logger.warning("No available server on the list");
+		}
 
-    }
+	}
 
 }
