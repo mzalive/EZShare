@@ -1,9 +1,11 @@
 package EZShare;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -280,7 +282,11 @@ public class Client {
 				logger.info(Subscribe.toJSONString());
 				output.writeUTF(Subscribe.toJSONString());
 				output.flush();
-
+				
+				UnsubscribeThread un = new UnsubscribeThread(socket);
+				un.start();
+				
+				
 				break;
 			
 			case "-unsubscribe":
@@ -295,6 +301,7 @@ public class Client {
 				output.writeUTF(Unsubscribe.toJSONString());
 				output.flush();		
 				
+
 			//	-subscribe -id 1 -name "big4" -channel "big4" -owner "big4" -description "big4" -uri "http://big4.com"
 				break;
 				

@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -40,6 +41,13 @@ public class Server {
 	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
 	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
 	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
+	
+	
+	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
+	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
+	Object[][] o = new Object[100][2];
+	int len = 0;
+	
 	public static void main(String[] args) {
 
 		// init logger
@@ -160,18 +168,31 @@ public class Server {
 						outcomeJSON = publishObject.publish();
 						for(JSONObject j : outcomeJSON){
 							if(j.get("response").equals("success")){
-								for(JSONObject re : subscriptionResources){
-									if(canSubscribe(resourceTemplate,re)){
-										int id = resourceMap.get(re);
-										Socket socket = subscribeMap.get(id);
-										DataOutputStream out1 = (DataOutputStream)socket.getOutputStream();
-										out1.writeUTF(resourceTemplate.toJSONString());
-										out1.flush();
-										out1.close();
-										socket.close();
+
+										Iterator iter = map1.entrySet().iterator();
+										while (iter.hasNext()) {
+										HashMap.Entry entry = (HashMap.Entry) iter.next();
+										Socket soc = (Socket) entry.getKey();
+										HashMap hash = (HashMap) entry.getValue();
+											Iterator iter1 = hash.entrySet().iterator();
+												while (iter1.hasNext()) {
+												HashMap.Entry entry1 = (HashMap.Entry) iter1.next();
+												int key = Integer.parseInt( (entry1.getKey().toString()));
+												JSONObject val = (JSONObject) entry1.getValue();
+												if(val.equals(resourceTemplate)){
+													DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
+													outsoc.writeUTF(val.toJSONString());
+													outsoc.flush();
+												}
+												}
+										}
+										
+
+									//	out1.close();
+									//	socket.close();
 									}
-								}
-							}
+								
+							
 						}
 						
 						// respond with the outcome of the operation
@@ -225,11 +246,22 @@ public class Server {
 					case "SUBSCRIBE":
 						JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
 						subscriptionResources.add(resource);
-						resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
+			//			resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
 						//SubscribeServer(server.accept().start());
 						int id = Integer.parseInt(clientCommand.get("id").toString());
-						subscribeMap.put(id, client);
-						unsubscribeMap.put(id, resource);
+			//			subscribeMap.put(id, client);
+			//			unsubscribeMap.put(id, resource);
+						
+						if(map1.get(client)==null){
+							HashMap <Integer,JSONObject> newmap = new HashMap<Integer,JSONObject>();
+							newmap.put(id, resource);
+							map1.put(client, newmap);
+						}
+						else{
+							HashMap map = map1.get(client);
+							map.put(id, resource);
+							
+						}
 						result = new JSONObject();
 						result.put("response", "success");
 						output.writeUTF(result.toJSONString());
@@ -238,7 +270,7 @@ public class Server {
 						
 					case "UNSUBSCRIBE":
 						 id = Integer.parseInt(clientCommand.get("id").toString());
-						JSONObject j = unsubscribeMap.get(id);
+					/*	JSONObject j = unsubscribeMap.get(id);
 						if(subscriptionResources.contains(j)){
 							subscriptionResources.remove(j);
 							Socket socket = subscribeMap.get(id);
@@ -247,8 +279,32 @@ public class Server {
 							result.put("response","success");
 							out2.writeUTF(result.toJSONString());
 							out2.flush();
-							out2.close();
+						//	out2.close();
+						}*/
+						
+						if(map1.get(client) != null){
+							HashMap unmap = map1.get(client);
+							if(unmap.get(id)!=null){
+								unmap.remove(id);
+								result = new JSONObject();
+								result.put("response","success");
+								output.writeUTF(result.toJSONString());
+								output.flush();
+							}
+							else{
+								result = new JSONObject();
+								result.put("error","missing id");
+								output.writeUTF(result.toJSONString());
+								output.flush();
+							}
 						}
+						else{
+							result = new JSONObject();
+							result.put("error","No subscription record");
+							output.writeUTF(result.toJSONString());
+							output.flush();
+						}
+						
 						break;
 					default:
 						logger.warning(loggerPrefix + "unknown command");
