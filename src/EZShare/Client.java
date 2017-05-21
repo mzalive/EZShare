@@ -11,6 +11,9 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -24,10 +27,11 @@ import net.sf.json.JSONArray;
 
 public class Client {
 	private static Logger logger;
-	
+
 	private static String host = "localhost";
 	private static int port = 3780;
-	
+	private static boolean secure = false;
+
 	private static String channel = "";
 	private static String description = "";
 	private static String name = "";
@@ -36,20 +40,22 @@ public class Client {
 	private static JSONArray servers = new JSONArray();
 	private static ArrayList<String> tags = new ArrayList<String>();
 	private static String uri = "";
-	
+
 
 	@SuppressWarnings("unchecked")
 	public static void main(String[] args) {
+		
+		Socket socket = null;
 
 		JSONObject clientCommand = new JSONObject();
 		JSONParser p = new JSONParser();
-		
+
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Client.class.getClassLoader().getResourceAsStream("logging.properties"));
 		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
 		logger = Logger.getLogger(Client.class.getName());
-		
+
 		// handle args
 		Options options = new Options();
 		options.addOption("channel", true, "channel");
@@ -69,10 +75,11 @@ public class Client {
 		options.addOption("share", false, "share resource on server");
 		options.addOption("tags", true, "resource tags, tag1,tag2,tag3,...");
 		options.addOption("uri", true, "resource URI");
+		options.addOption("secure", false, "use secure socket");
 		options.addOption("h","help", false, "show usage");
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cLine = null;
-		
+
 		try {
 			cLine = parser.parse(options, args);
 		} catch (org.apache.commons.cli.ParseException e) {
@@ -83,19 +90,25 @@ public class Client {
 			hFormatter.printHelp("EZShare Client", options);
 			return;
 		}
-		
+
 		if (args.length == 0 || cLine.hasOption("h")) {
 			HelpFormatter hFormatter = new HelpFormatter();
 			hFormatter.printHelp("EZShare Client", options);
 			return;
 		}
-		
+
 		// set debug mode
 		if (cLine.hasOption("debug")) {
 			logger.setLevel(Level.ALL);
 			logger.info("debug mode on");
 		} else logger.setLevel(Level.OFF);
-		
+
+		// set secure mode
+		if (cLine.hasOption("secure")) {
+			secure = true;
+			logger.info("secure mode on");
+		} else logger.info("unsecure mode");
+
 		// check if the host and port is set manually
 		if (cLine.hasOption("host")) {
 			host = cLine.getOptionValue("host");
@@ -107,9 +120,17 @@ public class Client {
 		} else logger.info("no assigned port, using default : " + port);
 
 		//create socket for connection
-		logger.info("try connecting " + host + ":" + port);
-		try(Socket socket = new Socket(host, port);) {
-
+		try {
+			if (secure) {
+				logger.info("[secure] try connecting " + host + ":" + port);
+				System.setProperty("javax.net.ssl.trustStore", "clientKeyStore/myGreatName");
+//				System.setProperty("javax.net.debug","all");
+				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+			} else {
+				logger.info("[unsecure] try connecting " + host + ":" + port);
+				socket = new Socket(host, port);
+			}
 			// get the input and output stream
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
@@ -121,7 +142,7 @@ public class Client {
 				logger.info("command: QUERY");
 				extractResourceTemplate(cLine);
 				Resource template = new Resource(name, description, tags, uri, channel, owner);
-				
+
 				// compose request
 				clientCommand.put("command", "QUERY");
 				clientCommand.put("resourceTemplate", template.toJSON());
@@ -130,7 +151,7 @@ public class Client {
 				// send request
 				output.writeUTF(clientCommand.toJSONString());
 				output.flush();
-				
+
 				// get response
 				System.out.println("waiting for server respond...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
@@ -145,15 +166,15 @@ public class Client {
 						} else System.out.println(result);
 					}
 				}			
-				
+
 			} 
-			
+
 			/*
 			 * EXCHANGE
 			 */
 			else if (cLine.hasOption("exchange")) {
 				logger.info("command: EXCHANGE");
-				
+
 				// extract server list
 				if (cLine.hasOption("servers")) {
 					String serverArgs = cLine.getOptionValue("servers");
@@ -168,7 +189,7 @@ public class Client {
 						} else logger.warning("invalid server: " + server);
 					}
 					logger.info("servers: " + servers.toString());	
-					
+
 					// compose request
 					clientCommand.put("command", "EXCHANGE");
 					clientCommand.put("serverList", servers);
@@ -176,16 +197,16 @@ public class Client {
 					// send request
 					output.writeUTF(clientCommand.toJSONString());
 					output.flush();
-					
+
 					// get response
 					System.out.println("waiting for server respond...");
 					System.out.println(input.readUTF());
-					
+
 				} else {
 					System.out.println("No server list");
 				}
 			}
-			
+
 			/*
 			 * FETCH
 			 */
@@ -193,7 +214,7 @@ public class Client {
 				logger.info("command: FETCH");
 				extractResourceTemplate(cLine);
 				Resource template = new Resource(name, description, tags, uri, channel, owner);
-				
+
 				// compose request
 				clientCommand.put("command", "FETCH");
 				clientCommand.put("resourceTemplate", template.toJSON());
@@ -206,13 +227,13 @@ public class Client {
 				System.out.println("waiting for server respond...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);
-				
+
 				if (response.get("response").equals("success")) {
 					boolean hasMoreData = true;
-					
+
 					while (hasMoreData) {
 						JSONObject result = (JSONObject) p.parse(input.readUTF());
-						
+
 						if (result.containsKey("resultSize")) {
 							System.out.println("Total: " + result.get("resultSize") + " results");
 							hasMoreData = false;
@@ -220,13 +241,13 @@ public class Client {
 							// get filename
 							String uri = result.get("uri").toString();
 							String fileName = uri.substring( uri.lastIndexOf('/')+1, uri.length() );
-							
+
 							// get length
 							long fileSizeRemaining =(long) (result.get("resourceSize"));
-							
+
 							// create file
 							RandomAccessFile downloadingFile = new RandomAccessFile(fileName, "rw");
-							
+
 							// Receive file from server
 							int chunkSize = 1024*1024;
 							chunkSize = (fileSizeRemaining < chunkSize) ? (int)fileSizeRemaining : 1024*1024;
@@ -235,32 +256,32 @@ public class Client {
 							System.out.println("Downloading "+fileName+" of size "+fileSizeRemaining);
 							System.out.println("Writing file: " + System.getProperty("user.dir") + "/" + fileName);
 							while((num=input.read(receiveBuffer))>0){
-    							// Write the received bytes into the RandomAccessFile
-    							downloadingFile.write(Arrays.copyOf(receiveBuffer, num));
+								// Write the received bytes into the RandomAccessFile
+								downloadingFile.write(Arrays.copyOf(receiveBuffer, num));
 
-    							// Reduce the file size left to read..
-    							fileSizeRemaining-=num;
+								// Reduce the file size left to read..
+								fileSizeRemaining-=num;
 
-    							// Set the chunkSize again
-    							chunkSize = (fileSizeRemaining < chunkSize) ? (int)fileSizeRemaining : 1024*1024;
-    							receiveBuffer = new byte[chunkSize];
-    							
-    							System.out.print(".");
+								// Set the chunkSize again
+								chunkSize = (fileSizeRemaining < chunkSize) ? (int)fileSizeRemaining : 1024*1024;
+								receiveBuffer = new byte[chunkSize];
 
-    							// If you're done then break
-    							if(fileSizeRemaining==0){
-    								break;
-    							}
-    						}
+								System.out.print(".");
+
+								// If you're done then break
+								if(fileSizeRemaining==0){
+									break;
+								}
+							}
 							System.out.print("\n");
-    						downloadingFile.close();
+							downloadingFile.close();
 							System.out.println("Transmission complete: File: "+ fileName);
 						}
 					}
 				} 
 			}
-			
-			
+
+
 			/*
 			 * PUBLISH
 			 */
@@ -268,7 +289,7 @@ public class Client {
 				logger.info("command: PUBLISH");
 				extractResourceTemplate(cLine);
 				Resource resource = new Resource(name, description, tags, uri, channel, owner);
-				
+
 				// compose request
 				clientCommand.put("command", "PUBLISH");
 				clientCommand.put("resource", resource.toJSON());
@@ -276,14 +297,14 @@ public class Client {
 				// send request
 				output.writeUTF(clientCommand.toJSONString());
 				output.flush();
-				
+
 				// get response
 				System.out.println("waiting for server respond...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
-			
-			
+
+
 			/*
 			 * SHARE
 			 */
@@ -291,12 +312,12 @@ public class Client {
 				logger.info("command: SHARE");
 				extractResourceTemplate(cLine);
 				Resource resource = new Resource(name, description, tags, uri, channel, owner);
-				
+
 				if (cLine.hasOption("secret")) {
 					secret = cLine.getOptionValue("secret");
 					logger.info("secret: " + secret);
 				} else logger.warning("no assigned resource secret");
-				
+
 				// compose request
 				clientCommand.put("command", "SHARE");
 				clientCommand.put("secret", secret);
@@ -305,14 +326,14 @@ public class Client {
 				// send request
 				output.writeUTF(clientCommand.toJSONString());
 				output.flush();
-				
+
 				// get response
 				System.out.println("waiting for server respond...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
-			
-			
+
+
 			/*
 			 * REMOVE
 			 */
@@ -320,7 +341,7 @@ public class Client {
 				logger.info("command: REMOVE");
 				extractResourceTemplate(cLine);
 				Resource resource = new Resource(uri, channel, owner);
-				
+
 				// compose request
 				clientCommand.put("command", "REMOVE");
 				clientCommand.put("resource", resource.toJSON());
@@ -328,14 +349,14 @@ public class Client {
 				// send request
 				output.writeUTF(clientCommand.toJSONString());
 				output.flush();
-				
+
 				// get response
 				System.out.println("waiting for server respond...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
-			
-		socket.close();
+
+			socket.close();
 
 		} catch (UnknownHostException e) {
 			System.out.println("Unknown server, exit");
@@ -347,7 +368,7 @@ public class Client {
 			System.out.println("Unexpected response from server");
 		}
 	}
-	
+
 	private static boolean extractResourceTemplate(CommandLine cLine) {
 		if (cLine.hasOption("name")) {
 			name = cLine.getOptionValue("name");
