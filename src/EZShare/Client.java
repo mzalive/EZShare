@@ -78,6 +78,7 @@ public class Client {
 					Query = parse(args[i],args[i+1],Query);
 					i+=2;
 				}
+				logger.info(Query.toJSONString());
 
 				// put command into JSONObject and send it to the server
 				Query.put("command", "QUERY");
@@ -326,6 +327,11 @@ public class Client {
 	private static JSONObject parse(String s1, String s2, JSONObject json) {
 		// TODO Auto-generated method stub
 		switch(s1){
+		
+		// set relay to true if relay argument is given
+		case "-relay":
+			json.put("relay", Boolean.valueOf(s2));
+			break;
 
 		case "-id":
 			json.put("id", s2);
