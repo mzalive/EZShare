@@ -1,4 +1,4 @@
-package EZShare;
+
 
 import java.io.DataOutputStream;
 import java.util.ArrayList;
@@ -6,6 +6,9 @@ import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
+
+import EZShare.ResourceManager;
+import EZShare.RespondUtil;
 
 public class ExchangeServer {
 	public ResourceManager r;

@@ -123,7 +123,9 @@ public class Client {
 		try {
 			if (secure) {
 				logger.info("[secure] try connecting " + host + ":" + port);
-				System.setProperty("javax.net.ssl.trustStore", "clientKeyStore/myGreatName");
+//				System.setProperty("javax.net.ssl.keyStore", "keystore/Big4Client");
+				System.setProperty("javax.net.ssl.trustStore", "keystore/clientKeystore/myGreatName");
+//				System.setProperty("javax.net.ssl.trustStore","keystore/rootCA.keystore");
 //				System.setProperty("javax.net.debug","all");
 				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);

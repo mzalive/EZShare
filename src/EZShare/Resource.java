@@ -37,7 +37,7 @@ public class Resource {
 		this.owner = owner;
 		this.ezserver = null;
 	}
-
+	
 	public Resource(String uri, String channel, String owner) {
 		//returns a resource object with only primary key 
 		super();
