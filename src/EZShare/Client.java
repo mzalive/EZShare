@@ -73,6 +73,8 @@ public class Client {
 		options.addOption("publish", false, "publish resource on server");
 		options.addOption("query", false, "query for resources from server");
 		options.addOption("remove", false, "remove resource from server");
+		options.addOption("subscribe",false,"subscribe resource from server");
+	//	options.addOption("id",true,"subscription id");
 		options.addOption("secret", true, "secret");
 		options.addOption("servers", true, "server list, host1:port1,host2:port2,...");
 		options.addOption("share", false, "share resource on server");
@@ -126,9 +128,9 @@ public class Client {
 		try {
 			if (secure) {
 				logger.info("[secure] try connecting " + host + ":" + port);
-				System.setProperty("javax.net.ssl.keyStore", "keystore/clientKeystore/myClient");
+				System.setProperty("javax.net.ssl.keyStore", "myClient");
 				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-				System.setProperty("javax.net.ssl.trustStore","keystore/clientKeystore/myClient");
+				System.setProperty("javax.net.ssl.trustStore","myClient");
 //				System.setProperty("javax.net.debug","all");
 				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
@@ -432,6 +434,12 @@ public class Client {
 			tags = new ArrayList<String>(Arrays.asList(tagArgs.split(",")));
 			logger.info("tags: " + tags);
 		} else logger.warning("no assigned resource tags");
+	/*	if (cLine.hasOption("id")){
+			String id1 = cLine.getOptionValue("id");
+			int id = Integer.parseInt(id1);
+			logger.info("id: "+id);
+		}*/
+		
 		if (cLine.hasOption("uri")) {
 			uri = cLine.getOptionValue("uri");
 			logger.info("uri: " + uri);

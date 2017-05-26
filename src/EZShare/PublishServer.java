@@ -1,9 +1,13 @@
 package EZShare;
 import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
@@ -15,17 +19,20 @@ public class PublishServer {
 	private int clientID;
 	private ResourceManager resourceManager;
 	boolean failed = false;
-	
+	int hit;
+	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
 	// publish constructor
-	public PublishServer(JSONObject c, ResourceManager reManager, DataOutputStream output, int clientID) {
+	public PublishServer(JSONObject c, ResourceManager reManager, DataOutputStream output, int clientID, HashMap map1, int hit) {
 		this.clientCommand = c;
 		this.resourceManager = reManager;
 		this.output = output;
 		this.clientID = clientID;
+		this.map1 = map1;
+		this.hit = hit;
 	}
 	
 	// method to publish the resource to the server
-	public void publish() {
+	public int publish() throws IOException {
 		Logger logger = Logger.getLogger(PublishServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 		JSONObject resource = null;
@@ -89,7 +96,35 @@ public class PublishServer {
 			resourceManager.addResource(r);
 			logger.fine(loggerPrefix + "resource: " + r.toJSON().toString() + " published");
 			RespondUtil.returnSuccessMsg(output);
-		}		
+			Iterator iter = map1.entrySet().iterator();
+			while (iter.hasNext()) {
+			HashMap.Entry entry = (HashMap.Entry) iter.next();
+			Socket soc = (Socket) entry.getKey();
+			HashMap hash = (HashMap) entry.getValue();
+				Iterator iter1 = hash.entrySet().iterator();
+					while (iter1.hasNext()) {
+					HashMap.Entry entry1 = (HashMap.Entry) iter1.next();
+					String key =  (entry1.getKey().toString());
+					JSONObject val = (JSONObject) entry1.getValue();
+
+					if(val.equals(resource)){
+						hit++;
+				//		System.out.println("Publish:"+hit);
+						DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
+						outsoc.writeUTF(val.toJSONString());
+						outsoc.flush();
+					}
+					}
+			}
+			
+
+		//	out1.close();
+		//	socket.close();
+		}
+	
+	return hit;
+
+		
 	}
 	
 }
