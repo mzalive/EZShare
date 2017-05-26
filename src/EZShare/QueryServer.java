@@ -1,10 +1,16 @@
 package EZShare;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class QueryServer {
 	
@@ -33,6 +39,7 @@ public class QueryServer {
 		
 		ArrayList<Resource> serverResources;
 		JSONObject resourceTemplate = new JSONObject();
+		JSONObject forwardCommand = new JSONObject();
 		
 		logger.info(loggerPrefix + "relay " + (relay?"on":"off"));
 				
@@ -52,6 +59,64 @@ public class QueryServer {
 		
 		// enforce server query rules to find matching candidates
 		templateTags = parseTags(resourceTemplate.get("tags").toString());
+		int a=0;
+		// if relay field is set to true, send a query request to each server on server list
+		if(relay){
+			ArrayList<JSONObject> serverlist = resourceManager.serverlist;
+			for(JSONObject j: serverlist){
+			String host = j.get("hostname").toString();
+			int port = Integer.parseInt(j.get("port").toString());
+			
+			// forwarded command must set relay field to false and channel and owner to ""
+			forwardCommand = clientCommand;
+			forwardCommand.put("relay", false);
+			forwardCommand.put("channel", "");
+			forwardCommand.put("owner", "");
+			
+				try(Socket socket = new Socket(host,port);){
+					// get the input and output stream
+					DataInputStream input1 = new DataInputStream(socket.getInputStream());
+					DataOutputStream output1 = new DataOutputStream(socket.getOutputStream());
+					logger.info(forwardCommand.toJSONString());
+					output1.writeUTF(forwardCommand.toJSONString());
+					output1.flush();
+					System.out.println("RECEIVE(relay query):");
+					while(true){
+						try {
+							Thread.sleep(2000);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						  if(input1.available()>0){
+								String result = input1.readUTF();
+								JSONParser parser = new JSONParser();
+								try {
+									JSONObject re = (JSONObject) parser.parse(result);
+									if(re.get("resultSize")!=null){
+										a+=Integer.parseInt(re.get("resultSize").toString());
+									}
+								} catch (ParseException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								output.writeUTF(result);
+								System.out.println(result);
+							}
+							else{
+								break;
+							}
+							}
+					socket.close();
+			} catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			}	
+		}
 		
 		for (Resource r : serverResources) {
 			logger.fine(loggerPrefix + "validating resource: " + r.toJSON().toString());
@@ -124,7 +189,9 @@ public class QueryServer {
 			for (Resource r : relevantQueryResources) 
 				output.writeUTF(r.toJSON().toJSONString());
 			JSONObject resultSize = new JSONObject();
-			resultSize.put("resultSize", relevantQueryResources.size());
+			
+			// we only want to show resultSize once after relay
+			resultSize.put("resultSize", relevantQueryResources.size()+a);
 			output.writeUTF(resultSize.toJSONString());
 		} catch (Exception e) {
 			// TODO: handle exception

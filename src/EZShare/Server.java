@@ -1,12 +1,18 @@
 package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Random;
+import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -34,15 +40,25 @@ public class Server {
 
 	private static int port = 3780;
 	private static int sport = 3781;
-	private static int connection_interval = 60*10;
-	private static int exchange_interval = 60*10;
+	private static int connection_interval = 60 * 10;
+	private static int exchange_interval = 60 * 10;
 	private static String hostname;
 	private static String secret;
 	private static int counter =0;
 	private static ResourceManager resourceManager; // resource manager handles all server resources
 	
 	private static Logger logger = null;
-
+	
+	static ArrayList<JSONObject> subscriptionResources = new ArrayList<JSONObject>();
+	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
+	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
+	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
+	
+	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
+	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
+	Object[][] o = new Object[100][2];
+	int len = 0;
+	
 	public static void main(String[] args) {
 
 		// init logger
@@ -51,10 +67,9 @@ public class Server {
 		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
 		logger = Logger.getLogger(Server.class.getName());
 		
-		System.setProperty("javax.net.ssl.keyStore","keystore/serverKeystore/aGreatName");
+		System.setProperty("javax.net.ssl.keyStore","keystore/serverKeystore/myServer");
 		System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-//		System.setProperty("javax.net.ssl.trustStore", "keystore/Big4Server");
-//		System.setProperty("javax.net.ssl.trustStore","keystore/rootCA.keystore");
+		System.setProperty("javax.net.ssl.trustStore","keystore/serverKeystore/myServer");
 //		System.setProperty("javax.net.debug","all");
 		
 		// handle args
@@ -70,7 +85,7 @@ public class Server {
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cLine = null;
 		try {
-			cLine = parser.parse(options, args);
+		    cLine = parser.parse(options, args);
 		} catch (org.apache.commons.cli.ParseException e) {
 			System.out.println(e.getMessage());
 			HelpFormatter hformatter = new HelpFormatter();
@@ -190,6 +205,41 @@ public class Server {
 		}
 	}
 
+	private static boolean canSubscribe(JSONObject rTemplate1, JSONObject rTemplate2){
+		// rTemplate1 is client resource template and rTemplate2 is any server resource template
+		// determine if a client resource template matches the given server resource template
+		
+		// check name of the resource
+		if ( !rTemplate1.get("name").equals(rTemplate2.get("name")) )
+				return false;
+		
+		// check tags are the same
+		else if ( !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+			return false;
+		
+		// check if descriptions match
+		else if ( !rTemplate1.get("description").equals(rTemplate2.get("description")) )
+			return false;
+		
+		// check if the uri's match
+		else if ( !rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
+			return false;
+		
+		// check if the channels match
+		else if ( !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
+			return false;
+		
+		// check if the owner's are the same
+		else if ( !rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
+			return false;
+		
+		// check if ezServer matches
+		else if ( !rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
+			return false;
+		
+		return true;
+	}
+	
 	private static void serveClient(Socket clientSocket, int clientID, boolean isSecure){
 
 		Logger logger = Logger.getLogger(Server.class.getName());
@@ -212,10 +262,49 @@ public class Server {
 
 					switch (command) {
 					case "PUBLISH":
+						JSONObject resourceTemplate = (JSONObject) clientCommand.get("resource");
+						ArrayList<JSONObject> outcomeJSON;
 
 						// query object to handle publish command
 						PublishServer publishServer = new PublishServer(clientCommand, resourceManager, output, clientID);
 						publishServer.publish();
+						
+//						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
+//						outcomeJSON = publishObject.publish();
+//						for(JSONObject j : outcomeJSON){
+//							if(j.get("response").equals("success")){
+//
+//										Iterator iter = map1.entrySet().iterator();
+//										while (iter.hasNext()) {
+//										HashMap.Entry entry = (HashMap.Entry) iter.next();
+//										Socket soc = (Socket) entry.getKey();
+//										HashMap hash = (HashMap) entry.getValue();
+//											Iterator iter1 = hash.entrySet().iterator();
+//												while (iter1.hasNext()) {
+//												HashMap.Entry entry1 = (HashMap.Entry) iter1.next();
+//												int key = Integer.parseInt( (entry1.getKey().toString()));
+//												JSONObject val = (JSONObject) entry1.getValue();
+//												if(val.equals(resourceTemplate)){
+//													DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
+//													outsoc.writeUTF(val.toJSONString());
+//													outsoc.flush();
+//												}
+//												}
+//										}
+//										
+//
+//									//	out1.close();
+//									//	socket.close();
+//									}
+//								
+//							
+//						}
+//						// respond with the outcome of the operation
+//						for (int i = 0; i < outcomeJSON.size(); i++) {
+//							results.put("result"+i, outcomeJSON.get(i));
+//						}
+//						output.writeUTF(results.toJSONString());
+						
 						keepAlive = false;
 						break;
 
@@ -249,31 +338,57 @@ public class Server {
 						keepAlive = false;
 						break;
 						
-//						JSONArray jsonArray = (JSONArray) clientCommand.get("serverList");
-//						ArrayList<JSONObject> e = new ArrayList<JSONObject>();
-//						if (jsonArray != null) { 
-//							for (int i=0; i<jsonArray.size(); i++){ 
-//								e.add((JSONObject) jsonArray.get(i));
-//							} 
-//						} 
-//
-//						// get the serverlist and visit each JSONObject in them for exchanging
-//						ExchangeServer es = new ExchangeServer(resourceManager);
-//						JSONObject[] resultArray = new JSONObject[e.size()];
-//						int len = 0;
-//						JSONObject result = new JSONObject();
-//						//	result.put("result1", e.size());
-//						for (JSONObject j : e){
-//							// process the IP Address for exchanging and write the response into an array.
-//							JSONObject result1 = es.exchange(j,output);
-//							resultArray[len] = result1;
-//							len++;
-//						}
-//						result.put("response", resultArray);
-//						for(JSONObject j : resultArray){
-//							logger.info(j.toJSONString());
-//						}
-//						break;
+					case "SUBSCRIBE":
+						JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
+						subscriptionResources.add(resource);
+			//			resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
+						//SubscribeServer(server.accept().start());
+						int id = Integer.parseInt(clientCommand.get("id").toString());
+			//			subscribeMap.put(id, client);
+			//			unsubscribeMap.put(id, resource);
+						
+						if(map1.get(clientSocket)==null){
+							HashMap <Integer,JSONObject> newmap = new HashMap<Integer,JSONObject>();
+							newmap.put(id, resource);
+							map1.put(clientSocket, newmap);
+						}
+						else{
+							HashMap map = map1.get(clientSocket);
+							map.put(id, resource);
+							
+						}
+						RespondUtil.returnSuccessMsg(output);
+						break;
+						
+					case "UNSUBSCRIBE":
+						 id = Integer.parseInt(clientCommand.get("id").toString());
+					/*	JSONObject j = unsubscribeMap.get(id);
+						if(subscriptionResources.contains(j)){
+							subscriptionResources.remove(j);
+							Socket socket = subscribeMap.get(id);
+							DataOutputStream out2 = new DataOutputStream(socket.getOutputStream());
+							result = new JSONObject();
+							result.put("response","success");
+							out2.writeUTF(result.toJSONString());
+							out2.flush();
+						//	out2.close();
+						}*/
+						
+						if(map1.get(clientSocket) != null){
+							HashMap unmap = map1.get(clientSocket);
+							if(unmap.get(id)!=null){
+								unmap.remove(id);
+								RespondUtil.returnSuccessMsg(output);
+							}
+							else{
+								RespondUtil.returnErrorMsg(output, "missing id");
+							}
+						}
+						else{
+							RespondUtil.returnErrorMsg(output, "No subscription record");
+						}
+						keepAlive = false;
+						break;
 					default:
 						logger.warning(loggerPrefix + "unknown command");
 						clientSocket.close();

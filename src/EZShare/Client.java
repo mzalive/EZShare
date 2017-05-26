@@ -7,6 +7,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -19,6 +21,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -123,9 +126,9 @@ public class Client {
 		try {
 			if (secure) {
 				logger.info("[secure] try connecting " + host + ":" + port);
-//				System.setProperty("javax.net.ssl.keyStore", "keystore/Big4Client");
-				System.setProperty("javax.net.ssl.trustStore", "keystore/clientKeystore/myGreatName");
-//				System.setProperty("javax.net.ssl.trustStore","keystore/rootCA.keystore");
+				System.setProperty("javax.net.ssl.keyStore", "keystore/clientKeystore/myClient");
+				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
+				System.setProperty("javax.net.ssl.trustStore","keystore/clientKeystore/myClient");
 //				System.setProperty("javax.net.debug","all");
 				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
@@ -357,6 +360,42 @@ public class Client {
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
+			
+			
+			/*
+			 * SUBSCRIBE
+			 */
+			else if (cLine.hasOption("subscribe")) {
+				logger.info("command: SUBSCRIBE");
+				extractResourceTemplate(cLine);
+				Resource template = new Resource(name, description, tags, uri, channel, owner);
+				String id = idGen(10);
+
+				// compose request
+				clientCommand.put("command", "SUBSCRIBE");
+				clientCommand.put("resourceTemplate", template.toJSON());
+				clientCommand.put("id", id);
+				clientCommand.put("relay", true);
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);		
+				if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
+					Thread longConnection = new Thread( () -> inputAgent(output, id));
+					longConnection.start();
+						
+					while(true) {
+						JSONObject resource = (JSONObject) p.parse(input.readUTF().toString());
+						System.out.println(resource);
+						if(resource.containsKey("resultSize")) break;
+					}
+				}
+			} 
 
 			socket.close();
 
@@ -398,6 +437,32 @@ public class Client {
 			logger.info("uri: " + uri);
 		} else logger.warning("no assigned resource uri");
 		return true;
+	}
+	
+	private static void inputAgent(DataOutputStream output, String id) {
+		Scanner scanner = new Scanner(System.in);
+		scanner.nextLine();
+		scanner.close();
+		String unsubscribe = "{\"command\":\"UNSUBSCRIBE\",\"id\":\"" + id + "\"}";
+		
+		try{
+			output.writeUTF(unsubscribe);
+			output.flush();
+			logger.info(unsubscribe);
+		}catch(IOException e){
+			System.out.println(e.toString());
+		}
+	}
+	
+	private static String idGen(int length) {
+		String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+		Random random = new Random();
+		StringBuffer buf = new StringBuffer();
+		for (int i = 0; i < length; i++) {
+			int num = random.nextInt(62);
+			buf.append(str.charAt(num));
+		}
+		return buf.toString();
 	}
 
 }

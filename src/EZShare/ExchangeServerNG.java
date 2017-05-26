@@ -15,8 +15,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class ExchangeServerNG {
-	private static ArrayList<Host> hostList = new ArrayList<Host>();
-	private static ArrayList<Host> hostList_secure = new ArrayList<Host>();
+	private static ArrayList<Host> hostList = ResourceManager.hostList;
+	private static ArrayList<Host> hostList_secure = ResourceManager.hostList_secure;
 	private static Logger logger = Logger.getLogger(ExchangeServerNG.class.getName());
 	
 	public static void exchange(JSONObject clientCommand,DataOutputStream output, int clientID, boolean isSecure) {
@@ -62,9 +62,9 @@ public class ExchangeServerNG {
 			synchronized (targetHostList) {
 				logger.info(loggerPrefix + "Server Exchange Task Initiated");
 				target = getRandomHost(targetHostList);
-				if (target == null || target.equals(Server.self) || target.equals(Server.self_secure)) {
+				if (target == null) 
 					logger.warning(loggerPrefix + "Empty Serverlist! Skip Exchange");
-				} else {
+				else if (!target.equals(Server.self) && !target.equals(Server.self_secure)) {
 					logger.info(loggerPrefix + "Hit: " + target.toString());
 					for (Host h : targetHostList) {
 						serverList.add(h.toJSON());
@@ -72,20 +72,27 @@ public class ExchangeServerNG {
 					exchangeCommand.put("command", "EXCHANGE");
 					exchangeCommand.put("serverList", serverList);
 					logger.info(loggerPrefix + exchangeCommand.toJSONString());
-					Socket socket;
+					Socket socket = null;
+					SSLSocket sslSocket = null;
+					DataInputStream input;
+					DataOutputStream output;
 					try {
 						if (isSecure) {
-							socket = new Socket(target.getHostname(), target.getPort());
-						} else {
 							SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();  
-				            socket = (SSLSocket) sslsocketfactory.createSocket(target.getHostname(), target.getPort());  
+							sslSocket = (SSLSocket) sslsocketfactory.createSocket(target.getHostname(), target.getPort());  
+							input = new DataInputStream(sslSocket.getInputStream());
+							output = new DataOutputStream(sslSocket.getOutputStream());
+						} else {
+							socket = new Socket(target.getHostname(), target.getPort());
+							input = new DataInputStream(socket.getInputStream());
+							output = new DataOutputStream(socket.getOutputStream());
 						}
-						DataInputStream input = new DataInputStream(socket.getInputStream());
-						DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 						output.writeUTF(exchangeCommand.toJSONString());
 						output.flush();
 						logger.info(loggerPrefix + input.readUTF().toString());
-						socket.close();
+						if (socket != null) socket.close();
+						if (sslSocket != null) sslSocket.close();
+						
 					} catch (IOException e) {
 						// remove
 						logger.warning("Err: " + target.toString());
