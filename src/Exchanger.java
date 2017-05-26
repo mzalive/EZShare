@@ -1,4 +1,4 @@
-package EZShare;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -12,6 +12,8 @@ import java.util.logging.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import EZShare.ResourceManager;
 
 public class Exchanger {
 	private static int port = 3780;

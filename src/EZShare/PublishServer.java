@@ -1,37 +1,38 @@
 package EZShare;
-import java.io.File;
+import java.io.DataOutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.logging.Logger;
 
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class PublishServer {
 
-	JSONObject clientCommand;
-	ResourceManager resourceManager;
+	private DataOutputStream output;
+	private JSONObject clientCommand;
+	private int clientID;
+	private ResourceManager resourceManager;
 	boolean failed = false;
 	
 	// publish constructor
-	public PublishServer(JSONObject c, ResourceManager reManager) {
-		clientCommand = c;
-		resourceManager = reManager;
+	public PublishServer(JSONObject c, ResourceManager reManager, DataOutputStream output, int clientID) {
+		this.clientCommand = c;
+		this.resourceManager = reManager;
+		this.output = output;
+		this.clientID = clientID;
 	}
 	
 	// method to publish the resource to the server
-	public ArrayList<JSONObject> publish() {
-		
+	public void publish() {
+		Logger logger = Logger.getLogger(PublishServer.class.getName());
+		String loggerPrefix = "Client " + clientID + ": ";
 		JSONObject resource = null;
-		JSONObject outcomeJSON = new JSONObject();
-		ArrayList<JSONObject> jsonList = new ArrayList<>();
-		String[] tag_array;
 		
 		//extract resource
-		resource = clientCommand;
-		System.out.println(clientCommand.get("tags").getClass());
+		resource = (JSONObject) clientCommand.get("resource");
+		System.out.println(resource);
 		
 		String name = null;
 		String description = null;
@@ -39,7 +40,7 @@ public class PublishServer {
 		String owner = null;
 		String tagsStringRep;
 		URI uri = null;
-		ArrayList<String> tags = null;
+		ArrayList<String> tags = new ArrayList<String>();
 		
 		// publish server rules are below:
 		if (resource.containsKey("name"))
@@ -49,11 +50,7 @@ public class PublishServer {
 	    if (resource.containsKey("tags")) {
 	        tagsStringRep = resource.get("tags").toString();
 	        tagsStringRep = tagsStringRep.substring(1, tagsStringRep.length()-1);
-	        tags = new ArrayList<String>(Arrays.asList(tagsStringRep.split(",")));
-	        for (String s : tags) {
-	        	System.out.println(s);
-	        }
-	        
+	        tags = new ArrayList<String>(Arrays.asList(tagsStringRep.split(",")));	        
 	    }
 	    
 	    // if client command resource template contains a description
@@ -79,46 +76,20 @@ public class PublishServer {
 				
 				// if the uri is a file scheme, we cannot publish the resource
 				if (uri.getScheme().equals("file"))
-					jsonList.add(returnErrorMsg("cannot publish resource"));
+					RespondUtil.returnErrorMsg(output, "cannot publish resource");
 				
 			} catch (URISyntaxException e) {
-					jsonList.add(returnErrorMsg("invalid resource"));
+				RespondUtil.returnErrorMsg(output, "invalid resource");
 			}
 		}
 				
 		// finally, store the resource
 		if (!failed) {
-		ArrayList<Resource> t = resourceManager.getServerResources();
-		Iterator<Resource> i = t.iterator();
-		while(i.hasNext()){
-			Resource r1 = i.next();
-
-			if(r1.getChannel().equals(channel) && r1.getOwner().equals(owner) && r1.getUri().equals(uri.toString())){
-
-				i.remove();
-			}
-		}
 			Resource r = new Resource(name, description, tags, uri.toString(), channel, owner);
 			resourceManager.addResource(r);
-			JSONObject jsonResult = new JSONObject();
-			jsonResult.put("response", "success");
-			jsonList.add(jsonResult); 
-		}
-		
-		
-		// pack the response messages to be sent back to the client
-		//outcomeJSON.put("response", "success");
-		//jsonList.add(outcomeJSON);
-		return jsonList;
-		
-	}
-
-	private JSONObject returnErrorMsg(String msg) {
-		JSONObject jsonResult = new JSONObject();
-		jsonResult.put("response", "error");
-		jsonResult.put("errorMessage", msg);
-		failed = true;
-		return jsonResult;
+			logger.fine(loggerPrefix + "resource: " + r.toJSON().toString() + " published");
+			RespondUtil.returnSuccessMsg(output);
+		}		
 	}
 	
 }

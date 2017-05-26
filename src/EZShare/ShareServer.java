@@ -26,7 +26,7 @@ public class ShareServer {
 	}
 
 	public void share() {
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		Logger logger = Logger.getLogger(ShareServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 		
 		JSONObject resource = new JSONObject();
@@ -66,7 +66,8 @@ public class ShareServer {
 			try {
 				uri = new URI(resource.get("uri").toString());
 				if (!uri.getScheme().equals("file")) {
-					RespondUtil.returnErrorMsg(output, "invalid resource");
+					logger.warning(loggerPrefix + "invalid scheme: " + uri.getScheme());
+					RespondUtil.returnErrorMsg(output, "cannot share resource");
 					return;
 				}
 				File file = new File(uri);

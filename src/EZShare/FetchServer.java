@@ -1,27 +1,15 @@
 package EZShare;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.net.ServerSocketFactory;
-
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-
-import net.sf.json.JSON;
-
 
 
 public class FetchServer {
@@ -87,7 +75,8 @@ public class FetchServer {
 		Resource resource = resourceManager.getServerResource(channel, uri.toString());
 		File f = new File(uri.getPath());
 		if (resource == null || !f.exists()) {
-			System.out.println("no match resource");
+			RespondUtil.returnErrorMsg(output, "no match resource");
+			logger.warning(loggerPrefix + "resourceTemplate does not match, exit.");
 		} else try {
 			// respond
 			result.put("response", "success");
@@ -120,18 +109,5 @@ public class FetchServer {
 		}
 			
 	}
-	
-	// 
-	// this segment shows the initialization of Logger
-	//
-	// src/logging.properties records the homemade logging rules including logging format
-	// this should be done only once ahead of creating the first logger instance
-	// System.setProperty("java.util.logging.config.file", "src/logging.properties");
-	// Logger logger = Logger.getLogger(FetchServer.class.getName());
-	// use setlevel function to control logging level
-	// set level to Level.ALL/Level.OFF to turn on/off debug mode
-	// logger.setLevel(Level.ALL);
-	// logger.fine("Init");
-	// logger.warning("Init");
 
 }

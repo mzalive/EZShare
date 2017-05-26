@@ -1,425 +1,468 @@
 package EZShare;
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Random;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
+
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import net.sf.json.JSONArray;
+
 public class Client {
+	private static Logger logger;
 
-	public static void main(String[] args) throws UnknownHostException, IOException {
+	private static String host = "localhost";
+	private static int port = 3780;
+	private static boolean secure = false;
 
-		// set default host and ip address
-		int port = 3780;
-		String host = "localhost";
-		int arglen = args.length;
+	private static String channel = "";
+	private static String description = "";
+	private static String name = "";
+	private static String owner = "";
+	private static String secret = "";
+	private static JSONArray servers = new JSONArray();
+	private static ArrayList<String> tags = new ArrayList<String>();
+	private static String uri = "";
+
+
+	@SuppressWarnings("unchecked")
+	public static void main(String[] args) {
+		
+		Socket socket = null;
+
+		JSONObject clientCommand = new JSONObject();
+		JSONParser p = new JSONParser();
+
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Client.class.getClassLoader().getResourceAsStream("logging.properties"));
-		} catch (SecurityException | IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
+		logger = Logger.getLogger(Client.class.getName());
+
+		// handle args
+		Options options = new Options();
+		options.addOption("channel", true, "channel");
+		options.addOption("debug", false, "print debug information");
+		options.addOption("description", true, "resource description");
+		options.addOption("exchange", false, "exchange server list with server");
+		options.addOption("fetch", false, "fetch resources from server");
+		options.addOption("host", true, "server host, a domain name or IP address");
+		options.addOption("name", true, "resource name");
+		options.addOption("owner", true, "owner");
+		options.addOption("port", true, "server port, an integer");
+		options.addOption("publish", false, "publish resource on server");
+		options.addOption("query", false, "query for resources from server");
+		options.addOption("remove", false, "remove resource from server");
+		options.addOption("secret", true, "secret");
+		options.addOption("servers", true, "server list, host1:port1,host2:port2,...");
+		options.addOption("share", false, "share resource on server");
+		options.addOption("tags", true, "resource tags, tag1,tag2,tag3,...");
+		options.addOption("uri", true, "resource URI");
+		options.addOption("secure", false, "use secure socket");
+		options.addOption("h","help", false, "show usage");
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cLine = null;
+
+		try {
+			cLine = parser.parse(options, args);
+		} catch (org.apache.commons.cli.ParseException e) {
+			System.out.println(e.getMessage());
+			logger.warning(e.getMessage());
+
+			HelpFormatter hFormatter = new HelpFormatter();
+			hFormatter.printHelp("EZShare Client", options);
+			return;
 		}
-		Logger logger = Logger.getLogger(Client.class.getName());
-		for(int i=0; i<args.length - 1; i++){
-			if(args[i].equals("-debug")){
-				logger.setLevel(Level.ALL);
-				logger.info("debug mode on");
-			} else logger.setLevel(Level.OFF);
+
+		if (args.length == 0 || cLine.hasOption("h")) {
+			HelpFormatter hFormatter = new HelpFormatter();
+			hFormatter.printHelp("EZShare Client", options);
+			return;
 		}
+
+		// set debug mode
+		if (cLine.hasOption("debug")) {
+			logger.setLevel(Level.ALL);
+			logger.info("debug mode on");
+		} else logger.setLevel(Level.OFF);
+
+		// set secure mode
+		if (cLine.hasOption("secure")) {
+			secure = true;
+			logger.info("secure mode on");
+		} else logger.info("unsecure mode");
+
 		// check if the host and port is set manually
-		for(int i=0; i<args.length - 1;i++){
-			if(args[i].equals("-host"))
-			{host=args[i+1];}
-			else if(args[i].equals("-port"))
-			{port=Integer.parseInt(args[i+1]);}
-		}
+		if (cLine.hasOption("host")) {
+			host = cLine.getOptionValue("host");
+			logger.info("host : " + host);
+		} else logger.info("no assigned host, using default : " + host);
+		if (cLine.hasOption("port")) {
+			port = Integer.valueOf(cLine.getOptionValue("port"));
+			logger.info("set port : " + port);
+		} else logger.info("no assigned port, using default : " + port);
 
 		//create socket for connection
-		try(Socket socket = new Socket(host,port);){
-
+		try {
+			if (secure) {
+				logger.info("[secure] try connecting " + host + ":" + port);
+				System.setProperty("javax.net.ssl.keyStore", "keystore/clientKeystore/myClient");
+				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
+				System.setProperty("javax.net.ssl.trustStore","keystore/clientKeystore/myClient");
+//				System.setProperty("javax.net.debug","all");
+				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+			} else {
+				logger.info("[unsecure] try connecting " + host + ":" + port);
+				socket = new Socket(host, port);
+			}
 			// get the input and output stream
 			DataInputStream input = new DataInputStream(socket.getInputStream());
 			DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-			int len = args.length - 1;
 
-			// judge the type of command
-			switch (args[0]){
-			case "-query":
-				// Create Template of JSONObject for query
-				int i=1;
-				JSONObject Query = new JSONObject();
-				JSONObject resourceTemplate = new JSONObject();
-				resourceTemplate.put("name", "");
-				resourceTemplate.put("channel", "");
-				resourceTemplate.put("description", "");
-				resourceTemplate.put("uri", "");
-				resourceTemplate.put("owner", "");
-				resourceTemplate.put("ezserver", null);
-				resourceTemplate.put("tags", new ArrayList<String>());
-				Query.put("relay",false);
-				Query.put("resourceTemplate", resourceTemplate);
+			/*
+			 * QUERY
+			 */
+			if (cLine.hasOption("query")) {
+				logger.info("command: QUERY");
+				extractResourceTemplate(cLine);
+				Resource template = new Resource(name, description, tags, uri, channel, owner);
 
-				// check if any args are set manually
-				while(i<args.length - 1){
-					Query = parse(args[i],args[i+1],Query);
-					i+=2;
-				}
-				logger.info(Query.toJSONString());
+				// compose request
+				clientCommand.put("command", "QUERY");
+				clientCommand.put("resourceTemplate", template.toJSON());
+				clientCommand.put("relay", true);
 
-				// put command into JSONObject and send it to the server
-				Query.put("command", "QUERY");
-				logger.info(Query.toJSONString());
-				output.writeUTF(Query.toJSONString());
-				output.flush();
-				break;
-			case "-exchange":
-				ExchangeClient e = new ExchangeClient();
-				i=1;
-				JSONObject Exchange = new JSONObject();
-
-				// pass the serverlist variable to the exchange client object
-				Exchange.put("serverList", new ArrayList<JSONObject>());
-
-				// check if any args are set manually
-
-				while(i<args.length - 1){
-					Exchange = parse(args[i],args[i+1],Exchange);
-					i+=2;
-				}
-
-				// send the JSONObject to server
-				Exchange.put("command", "EXCHANGE");
-				logger.info(Exchange.toJSONString());
-				output.writeUTF(Exchange.toJSONString());
-				output.flush();
-				break;
-			case "-fetch":
-				i=1;
-
-				// Create Template of JSONObject for fetch
-				JSONObject Fetch = new JSONObject();
-				JSONObject resource = new JSONObject();
-				resource.put("name", "");
-				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
-				resource.put("owner", "");
-				resource.put("ezserver", null);
-				resource.put("tags", new ArrayList<String>());
-				Fetch.put("resourceTemplate", resource);
-
-				// check if any args are set manually
-				while(i<args.length - 1){
-					Fetch = parse(args[i],args[i+1],Fetch);
-					i+=2;
-				}
-				Fetch.put("command", "FETCH");
-
-				// print information and send JSONObject to server
-				logger.info("SENT: "+Fetch.toJSONString());
-				output.writeUTF(Fetch.toJSONString());
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
 				output.flush();
 
-				// get message from server
-				System.out.println("RECEIVE:");
-				String result2 = input.readUTF();
-				//String result3 = input.readUTF();
-			//	System.out.println(result2+result3);
-				JSONParser p = new JSONParser();
-
-				try {
-					JSONObject j = (JSONObject) p.parse(input.readUTF());
-					String name = j.get("uri").toString();
-					logger.info(result2+j.toJSONString());
-					  String[] aa = name.split("\\/");
-					  name = aa[aa.length-1];
-					// Receive file from server
-					File file = new File(name);
-					FileOutputStream fos = new FileOutputStream(file);
-					byte[] inputBytes = new byte[1024*1024];
-					int length =0;
-
-					// write bytes into the file
-					while((length=input.read(inputBytes,0,inputBytes.length))>0){
-						fos.write(inputBytes,0,length);
-						fos.flush();
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);
+				if (response.get("response").equals("success")) {
+					boolean hasMoreData = true;
+					while (hasMoreData) {
+						JSONObject result = (JSONObject) p.parse(input.readUTF());
+						if (result.containsKey("resultSize")) {
+							System.out.println("Total: " + result.get("resultSize") + " results");
+							hasMoreData = false;
+						} else System.out.println(result);
 					}
-				} catch (ParseException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
+				}			
+
+			} 
+
+			/*
+			 * EXCHANGE
+			 */
+			else if (cLine.hasOption("exchange")) {
+				logger.info("command: EXCHANGE");
+
+				// extract server list
+				if (cLine.hasOption("servers")) {
+					String serverArgs = cLine.getOptionValue("servers");
+					ArrayList<String> serverlist = new ArrayList<String>(Arrays.asList(serverArgs.split(",")));
+					for (String server: serverlist) {
+						String[] serverPar = server.split(":");
+						if (serverPar.length == 2 || serverPar[0] != "" || serverPar[1] != "") {
+							JSONObject serverObj = new JSONObject();
+							serverObj.put("hostname", serverPar[0]);
+							serverObj.put("port", Integer.valueOf(serverPar[1]));
+							servers.add(serverObj);
+						} else logger.warning("invalid server: " + server);
+					}
+					logger.info("servers: " + servers.toString());	
+
+					// compose request
+					clientCommand.put("command", "EXCHANGE");
+					clientCommand.put("serverList", servers);
+
+					// send request
+					output.writeUTF(clientCommand.toJSONString());
+					output.flush();
+
+					// get response
+					System.out.println("waiting for server respond...");
+					System.out.println(input.readUTF());
+
+				} else {
+					System.out.println("No server list");
 				}
-
-
-				break;
-
-			case "-publish":
-				i=1;
-
-				// Create resource template for Publish command
-				resource  = new JSONObject();
-				JSONObject Publish = new JSONObject();
-				ArrayList<String> tags = new ArrayList<String>();
-				resource = new JSONObject();
-				resource.put("name", "");
-				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
-				resource.put("owner", "");
-				resource.put("ezserver", null);
-				resource.put("tags", tags);
-				Publish.put("resource", resource);
-
-				// check if any args are set manually
-				while(i<args.length - 1){
-					Publish = parse(args[i],args[i+1],Publish);
-					i+=2;
-				}
-
-				// send the command to server
-				Publish.put("command", "PUBLISH");
-				logger.info(Publish.toJSONString());
-				output.writeUTF(Publish.toJSONString());
-				output.flush();
-				break;
-			case "-share":
-				i=1;
-
-				// Create JSONObject template for Sharing
-				JSONObject Share = new JSONObject();
-				 resource = new JSONObject();
-				resource.put("name", "");
-				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
-				resource.put("owner", "");
-				resource.put("ezserver", null);
-				resource.put("tags", new ArrayList<String>());
-				Share.put("resource", resource);
-				Share.put("secret", "");
-
-				// check if any args are set manually
-				while(i<args.length - 1){
-					Share = parse(args[i],args[i+1],Share);
-					i+=2;
-				}
-
-				// send the share command to server
-				Share.put("command", "SHARE");
-				logger.info(Share.toJSONString());
-				output.writeUTF(Share.toJSONString());
-				output.flush();
-				break;
-			case "-remove":
-				i=1;
-
-				// Create Remove template for Removing
-				JSONObject Remove = new JSONObject();
-				resource = new JSONObject();
-				resource.put("name", "");
-				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
-				resource.put("owner", "");
-				resource.put("ezserver", null);
-				resource.put("tags", new ArrayList<String>());
-				Remove.put("resource", resource);
-
-				//check if any args are set manually
-				while(i < args.length - 1){
-					Remove = parse(args[i],args[i+1],Remove);
-					i+=2;
-				}
-				// send the remove command to server
-				Remove.put("command", "REMOVE");
-				logger.info(Remove.toJSONString());
-				output.writeUTF(Remove.toJSONString());
-				output.flush();
-				break;
-				
-			case "-subscribe":
-				 i=1;
-				JSONObject Subscribe = new JSONObject();
-				Subscribe.put("command", "SUBSCRIBE");
-				Subscribe.put("relay", false);
-				Subscribe.put("id", -1);
-				resource = new JSONObject();
-				resource.put("name", "");
-				resource.put("channel", "");
-				resource.put("description", "");
-				resource.put("uri", "");
-				resource.put("owner", "");
-				resource.put("ezserver", null);
-				resource.put("tags", new ArrayList<String>());
-				Subscribe.put("resourceTemplate", resource);
-				while(i < args.length - 1){
-					Subscribe = parse(args[i],args[i+1],Subscribe);
-					i+=2;
-				}	
-			/*	JSONObject test = new JSONObject();
-				test.put("command", "SUBSCRIBE");
-				test.put("id", 1);
-				resource = new JSONObject();
-				resource.put("name","big4");
-				resource.put("channel", "big4");
-				resource.put("owner","big4");
-				resource.put("description","big4");
-				resource.put("uri", "http://big4.com");
-				test.put("resourceTemplate", resource);
-				output.writeUTF(test.toJSONString());*/
-				logger.info(Subscribe.toJSONString());
-				output.writeUTF(Subscribe.toJSONString());
-				output.flush();
-				
-				UnsubscribeThread un = new UnsubscribeThread(socket);
-				un.start();
-				
-				
-				break;
-			
-			case "-unsubscribe":
-				JSONObject Unsubscribe = new JSONObject();
-				Unsubscribe.put("command", "UNSUBSCRIBE");
-				i=1;
-				while(i < args.length - 1){
-					Unsubscribe = parse(args[i],args[i+1],Unsubscribe);
-					i+=2;
-				}				
-				logger.info(Unsubscribe.toJSONString());
-				output.writeUTF(Unsubscribe.toJSONString());
-				output.flush();		
-				
-
-			//	-subscribe -id 1 -name "big4" -channel "big4" -owner "big4" -description "big4" -uri "http://big4.com"
-				break;
-				
-			default:
-				// don't send any command to server
-				logger.warning("Invalid args input!");
-				break;
 			}
 
-			if(!args[0].equals("-fetch")){
-			System.out.println("RECEIVE:");
-			while(true){
-				  if(input.available()>0){
-						String result = input.readUTF();
-						System.out.println(result);
+			/*
+			 * FETCH
+			 */
+			else if (cLine.hasOption("fetch")) {
+				logger.info("command: FETCH");
+				extractResourceTemplate(cLine);
+				Resource template = new Resource(name, description, tags, uri, channel, owner);
+
+				// compose request
+				clientCommand.put("command", "FETCH");
+				clientCommand.put("resourceTemplate", template.toJSON());
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);
+
+				if (response.get("response").equals("success")) {
+					boolean hasMoreData = true;
+
+					while (hasMoreData) {
+						JSONObject result = (JSONObject) p.parse(input.readUTF());
+
+						if (result.containsKey("resultSize")) {
+							System.out.println("Total: " + result.get("resultSize") + " results");
+							hasMoreData = false;
+						} else {
+							// get filename
+							String uri = result.get("uri").toString();
+							String fileName = uri.substring( uri.lastIndexOf('/')+1, uri.length() );
+
+							// get length
+							long fileSizeRemaining =(long) (result.get("resourceSize"));
+
+							// create file
+							RandomAccessFile downloadingFile = new RandomAccessFile(fileName, "rw");
+
+							// Receive file from server
+							int chunkSize = 1024*1024;
+							chunkSize = (fileSizeRemaining < chunkSize) ? (int)fileSizeRemaining : 1024*1024;
+							byte[] receiveBuffer = new byte[chunkSize];
+							int num;
+							System.out.println("Downloading "+fileName+" of size "+fileSizeRemaining);
+							System.out.println("Writing file: " + System.getProperty("user.dir") + "/" + fileName);
+							while((num=input.read(receiveBuffer))>0){
+								// Write the received bytes into the RandomAccessFile
+								downloadingFile.write(Arrays.copyOf(receiveBuffer, num));
+
+								// Reduce the file size left to read..
+								fileSizeRemaining-=num;
+
+								// Set the chunkSize again
+								chunkSize = (fileSizeRemaining < chunkSize) ? (int)fileSizeRemaining : 1024*1024;
+								receiveBuffer = new byte[chunkSize];
+
+								System.out.print(".");
+
+								// If you're done then break
+								if(fileSizeRemaining==0){
+									break;
+								}
+							}
+							System.out.print("\n");
+							downloadingFile.close();
+							System.out.println("Transmission complete: File: "+ fileName);
+						}
 					}
+				} 
+			}
 
-					}}
 
+			/*
+			 * PUBLISH
+			 */
+			else if (cLine.hasOption("publish")) {
+				logger.info("command: PUBLISH");
+				extractResourceTemplate(cLine);
+				Resource resource = new Resource(name, description, tags, uri, channel, owner);
+
+				// compose request
+				clientCommand.put("command", "PUBLISH");
+				clientCommand.put("resource", resource.toJSON());
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);			
+			} 
+
+
+			/*
+			 * SHARE
+			 */
+			else if (cLine.hasOption("share")) {
+				logger.info("command: SHARE");
+				extractResourceTemplate(cLine);
+				Resource resource = new Resource(name, description, tags, uri, channel, owner);
+
+				if (cLine.hasOption("secret")) {
+					secret = cLine.getOptionValue("secret");
+					logger.info("secret: " + secret);
+				} else logger.warning("no assigned resource secret");
+
+				// compose request
+				clientCommand.put("command", "SHARE");
+				clientCommand.put("secret", secret);
+				clientCommand.put("resource", resource.toJSON());
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);			
+			} 
+
+
+			/*
+			 * REMOVE
+			 */
+			else if (cLine.hasOption("remove")) {
+				logger.info("command: REMOVE");
+				extractResourceTemplate(cLine);
+				Resource resource = new Resource(uri, channel, owner);
+
+				// compose request
+				clientCommand.put("command", "REMOVE");
+				clientCommand.put("resource", resource.toJSON());
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);			
+			} 
+			
+			
+			/*
+			 * SUBSCRIBE
+			 */
+			else if (cLine.hasOption("subscribe")) {
+				logger.info("command: SUBSCRIBE");
+				extractResourceTemplate(cLine);
+				Resource template = new Resource(name, description, tags, uri, channel, owner);
+				String id = idGen(10);
+
+				// compose request
+				clientCommand.put("command", "SUBSCRIBE");
+				clientCommand.put("resourceTemplate", template.toJSON());
+				clientCommand.put("id", id);
+				clientCommand.put("relay", true);
+
+				// send request
+				output.writeUTF(clientCommand.toJSONString());
+				output.flush();
+
+				// get response
+				System.out.println("waiting for server respond...");
+				JSONObject response = (JSONObject) p.parse(input.readUTF());
+				System.out.println(response);		
+				if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
+					Thread longConnection = new Thread( () -> inputAgent(output, id));
+					longConnection.start();
+						
+					while(true) {
+						JSONObject resource = (JSONObject) p.parse(input.readUTF().toString());
+						System.out.println(resource);
+						if(resource.containsKey("resultSize")) break;
+					}
+				}
+			} 
+
+			socket.close();
+
+		} catch (UnknownHostException e) {
+			System.out.println("Unknown server, exit");
+			return;
+		} catch (IOException e) {
+			System.out.println("Failed to connect, exit");
+			return;
+		} catch (ParseException e) {
+			System.out.println("Unexpected response from server");
 		}
 	}
-	private static JSONObject parse(String s1, String s2, JSONObject json) {
-		// TODO Auto-generated method stub
-		switch(s1){
+
+	private static boolean extractResourceTemplate(CommandLine cLine) {
+		if (cLine.hasOption("name")) {
+			name = cLine.getOptionValue("name");
+			logger.info("name: " + name);
+		} else logger.warning("no assigned resource name");
+		if (cLine.hasOption("channel")) {
+			channel = cLine.getOptionValue("channel");
+			logger.info("channel: " + channel);
+		} else logger.warning("no assigned resource channel");
+		if (cLine.hasOption("description")) {
+			description = cLine.getOptionValue("description");
+			logger.info("description: " + description);
+		} else logger.warning("no assigned resource description");
+		if (cLine.hasOption("owner")) {
+			owner = cLine.getOptionValue("owner");
+			logger.info("owner: " + owner);
+		} else logger.warning("no assigned resource owner");
+		if (cLine.hasOption("tags")) {
+			String tagArgs = cLine.getOptionValue("tags");
+			tags = new ArrayList<String>(Arrays.asList(tagArgs.split(",")));
+			logger.info("tags: " + tags);
+		} else logger.warning("no assigned resource tags");
+		if (cLine.hasOption("uri")) {
+			uri = cLine.getOptionValue("uri");
+			logger.info("uri: " + uri);
+		} else logger.warning("no assigned resource uri");
+		return true;
+	}
+	
+	private static void inputAgent(DataOutputStream output, String id) {
+		Scanner scanner = new Scanner(System.in);
+		scanner.nextLine();
+		scanner.close();
+		String unsubscribe = "{\"command\":\"UNSUBSCRIBE\",\"id\":\"" + id + "\"}";
 		
-		// set relay to true if relay argument is given
-		case "-relay":
-			json.put("relay", Boolean.valueOf(s2));
-			break;
-
-		case "-id":
-			json.put("id", s2);
-			break;
-		// put ezserver JSONObject
-		case "-ezserver":
-			JSONObject r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("ezserver", s2);
-			break;
-
-		// put channel into JSONObject
-		case "-channel":
-			 r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("channel", s2);
-			break;
-
-		// put description into JSONObject
-		case "-description":
-			r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("description", s2);
-			break;
-
-		// put name into JSONObject
-		case "-name":
-			r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("name", s2);
-			break;
-
-		// put owner into JSONObject
-		case "-owner":
-			r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("owner", s2);
-			break;
-
-		// put secret into JSONObject
-		case "-secret":
-			json.put("secret", s2);
-			break;
-
-		// put serverlist into JSONObject
-		case "-servers":
-		    String[] aa = s2.split("\\,");
-		    ArrayList<JSONObject> a = (ArrayList<JSONObject>) json.get("serverList");
-		    for (int i = 0 ; i <aa.length ; i++ ) {
-		    	String[] aaa = aa[i].split("\\:");
-		    	if(aaa.length==2){
-		    		JSONObject j = new JSONObject();
-		    		j.put("hostname", aaa[0]);
-		    		j.put("port", Integer.parseInt(aaa[1]));
-		    		a.add(j);
-		    	}
-		    }
-		    json.put("serverList", a);
-			break;
-
-		// put tags into JSONObject
-		case "-tags":
-			r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-		    String[] bb = s2.split("\\,");
-		    ArrayList<String> b = (ArrayList<String>) r.get("tags");
-		    if(bb.length>0){
-		    for (int i = 0 ; i <bb.length ; i++ ) {
-
-		    		b.add(bb[i]);
-
-		    }}
-		    json.put("tags", b);
-			break;
-
-		// put uri into JSONObject
-		case "-uri":
-			r = (JSONObject) json.get("resourceTemplate");
-			if(r==null){ r = (JSONObject) json.get("resource");}
-			r.put("uri", s2);
-			break;
-
-		// ignore invalid argument name
-		default:
-			break;
+		try{
+			output.writeUTF(unsubscribe);
+			output.flush();
+			logger.info(unsubscribe);
+		}catch(IOException e){
+			System.out.println(e.toString());
 		}
-		return json;
 	}
-
+	
+	private static String idGen(int length) {
+		String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+		Random random = new Random();
+		StringBuffer buf = new StringBuffer();
+		for (int i = 0; i < length; i++) {
+			int num = random.nextInt(62);
+			buf.append(str.charAt(num));
+		}
+		return buf.toString();
+	}
 
 }

@@ -1,8 +1,9 @@
 package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
@@ -18,6 +19,9 @@ import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -28,20 +32,27 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+
 public class Server {
 
-	private static String hostname = "localhost";
+	public static Host self;
+	public static Host self_secure;
+
 	private static int port = 3780;
-	private static int connection_interval = 600;
-	private static int exchange_interval = 600;
+	private static int sport = 3781;
+	private static int connection_interval = 60 * 10;
+	private static int exchange_interval = 60 * 10;
+	private static String hostname;
 	private static String secret;
 	private static int counter =0;
 	private static ResourceManager resourceManager; // resource manager handles all server resources
+	
+	private static Logger logger = null;
+	
 	static ArrayList<JSONObject> subscriptionResources = new ArrayList<JSONObject>();
 	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
 	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
 	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
-	
 	
 	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
 	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
@@ -53,18 +64,21 @@ public class Server {
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Server.class.getClassLoader().getResourceAsStream("logging.properties"));
-		} catch (SecurityException | IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		Logger logger = Logger.getLogger(Server.class.getName());
-
+		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
+		logger = Logger.getLogger(Server.class.getName());
+		
+		System.setProperty("javax.net.ssl.keyStore","keystore/serverKeystore/myServer");
+		System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
+		System.setProperty("javax.net.ssl.trustStore","keystore/serverKeystore/myServer");
+//		System.setProperty("javax.net.debug","all");
+		
 		// handle args
 		Options options = new Options();
 		options.addOption("advertisedhostname", true, "advertised hostname");
 		options.addOption("connectionintervallimit", true,"connection interval limit in seconds");
 		options.addOption("exchangeinterval", true,"exchange interval in seconds");
 		options.addOption("port", true,"server port, an integer");
+		options.addOption("sport", true,"secure server port, an integer");
 		options.addOption("secret", true,"secret");
 		options.addOption("debug", false, "print debug information");
 		options.addOption("h","help", false, "show usage");
@@ -73,12 +87,15 @@ public class Server {
 		try {
 		    cLine = parser.parse(options, args);
 		} catch (org.apache.commons.cli.ParseException e) {
-		    logger.warning("Unexpected exception:" + e.getMessage());
+			System.out.println(e.getMessage());
+			HelpFormatter hformatter = new HelpFormatter();
+			hformatter.printHelp("EZShare Server", options);
+			return;
 		}
 		if (cLine.hasOption("h")) {
 			HelpFormatter hformatter = new HelpFormatter();
-            hformatter.printHelp("EZShare Server", options);
-            return;
+			hformatter.printHelp("EZShare Server", options);
+			return;
 		}
 		if (cLine.hasOption("debug")) {
 			logger.setLevel(Level.ALL);
@@ -88,7 +105,13 @@ public class Server {
 		if (cLine.hasOption("advertisedhostname")) {
 			hostname = cLine.getOptionValue("advertisedhostname");
 			logger.info("set advertised hostname : " + hostname);
-		} else logger.info("no assigned advertised hostname, using default : " + hostname);
+		} else try {
+			hostname = InetAddress.getLocalHost().getHostAddress().toString();
+			logger.info("no assigned advertised hostname, using default : " + hostname);
+		} catch (IOException e) {
+			System.out.println("Cannot resolve local address! exit.");
+			return;
+		}
 
 		if (cLine.hasOption("connectionintervallimit")) {
 			connection_interval = Integer.valueOf(cLine.getOptionValue("connectionintervallimit"));
@@ -102,33 +125,83 @@ public class Server {
 
 		if (cLine.hasOption("port")) {
 			port = Integer.valueOf(cLine.getOptionValue("port"));
-			logger.info("set port : " + port + "s");
+			logger.info("set port : " + port);
 		} else logger.info("no assigned port, using default : " + port);
+		
+		if (cLine.hasOption("sport")) {
+			sport = Integer.valueOf(cLine.getOptionValue("sport"));
+			logger.info("set secure port : " + sport);
+		} else logger.info("no assigned secure port, using default : " + sport);
 
 		if (cLine.hasOption("secret")) {
 			secret = cLine.getOptionValue("secret");
-			logger.info("set secret : " + secret + "s");
+			logger.info("set secret : " + secret);
 		} else {
 			secret = secretGen(32);
 			logger.info("no assigned secret, auto generate : " + secret);
 		}
 
-
-		ServerSocketFactory factory = ServerSocketFactory.getDefault();
-		try(ServerSocket server = factory.createServerSocket(port)){
-			resourceManager = new ResourceManager(server.getInetAddress().toString(), Integer.toString(port));
+		
+		try{
+			ServerSocketFactory serverSocketFactory = ServerSocketFactory.getDefault();
+			ServerSocket serverSocket = serverSocketFactory.createServerSocket(port);
+			
+			SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+			SSLServerSocket serverSSLSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(sport);
+			
+			resourceManager = new ResourceManager(serverSocket.getInetAddress().toString(), Integer.toString(port));
+			
+			self = new Host(hostname, port);
+			self_secure = new Host(hostname, sport);
+			
+			ExchangeServerNG.addHost(false, self);
+			ExchangeServerNG.addHost(true, self_secure);
+			
 			logger.fine("Server established, standing by.");
-			Timer timer = new Timer();
-			timer.schedule(new MyTask(resourceManager), 1000, exchange_interval*1000);
-			while(true){
-				Socket client = server.accept();
-				counter++;
-				logger.info("Incoming connection from client " + counter + ", starting new thread");
-				Thread t = new Thread(()->serveClient(client, counter));
-				t.start();
-			}
+//			Timer timer = new Timer();
+//			timer.schedule(new MyTask(resourceManager), 1000, exchange_interval*1000);
+			
+			Thread serverExchange = new Thread(() -> ExchangeServerNG.serverExchange(exchange_interval * 1000, false));
+			serverExchange.start();
+			Thread serverExchangeSecure = new Thread(() -> ExchangeServerNG.serverExchange(exchange_interval * 1000, true));
+			serverExchangeSecure.start();
+			
+			Thread server = new Thread(()->serverStarter(serverSocket));
+			server.start();
+			Thread serverSecure = new Thread(()->serverSecureStarter(serverSSLSocket));
+			serverSecure.start();
+			
+			
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+	
+	private static void serverStarter(ServerSocket serverSocket) {
+		while(true){
+			try {
+				Socket clientSocket = serverSocket.accept();
+				counter++;
+				logger.info("[unsecure] Incoming connection from client " + counter + ", starting new thread");
+				Thread t = new Thread(()->serveClient(clientSocket, counter, false));
+				t.start();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private static void serverSecureStarter(ServerSocket serverSSLSocket) {
+		while(true){
+			try {
+				SSLSocket clientSecureSocket = (SSLSocket) serverSSLSocket.accept();
+				counter++;
+				logger.info("[secure] Incoming connection from client " + counter + ", starting new thread");
+				Thread t = new Thread(()->serveClient(clientSecureSocket, counter, true));
+				t.start();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -167,22 +240,20 @@ public class Server {
 		return true;
 	}
 	
-	private static void serveClient(Socket client, int clientID){
+	private static void serveClient(Socket clientSocket, int clientID, boolean isSecure){
 
 		Logger logger = Logger.getLogger(Server.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 
-		JSONObject results = new JSONObject();
 		JSONParser parser = new JSONParser();
 
-		JSONObject resourceTemplate = new JSONObject();
+		boolean keepAlive = true;
 
+		try {
 
-		try(Socket clientSocket = client){
 			DataInputStream input = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-			while (true) {
-				if(input.available() > 0){
+			while (keepAlive) {
 					JSONObject clientCommand = (JSONObject)parser.parse(input.readUTF());
 					logger.info(loggerPrefix + "original request: " + clientCommand.toJSONString());
 
@@ -191,87 +262,80 @@ public class Server {
 
 					switch (command) {
 					case "PUBLISH":
-						resourceTemplate = (JSONObject) clientCommand.get("resource");
+						JSONObject resourceTemplate = (JSONObject) clientCommand.get("resource");
 						ArrayList<JSONObject> outcomeJSON;
 
 						// query object to handle publish command
-						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
-						outcomeJSON = publishObject.publish();
-						for(JSONObject j : outcomeJSON){
-							if(j.get("response").equals("success")){
-
-										Iterator iter = map1.entrySet().iterator();
-										while (iter.hasNext()) {
-										HashMap.Entry entry = (HashMap.Entry) iter.next();
-										Socket soc = (Socket) entry.getKey();
-										HashMap hash = (HashMap) entry.getValue();
-											Iterator iter1 = hash.entrySet().iterator();
-												while (iter1.hasNext()) {
-												HashMap.Entry entry1 = (HashMap.Entry) iter1.next();
-												int key = Integer.parseInt( (entry1.getKey().toString()));
-												JSONObject val = (JSONObject) entry1.getValue();
-												if(val.equals(resourceTemplate)){
-													DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
-													outsoc.writeUTF(val.toJSONString());
-													outsoc.flush();
-												}
-												}
-										}
-										
-
-									//	out1.close();
-									//	socket.close();
-									}
-								
-							
-						}
+						PublishServer publishServer = new PublishServer(clientCommand, resourceManager, output, clientID);
+						publishServer.publish();
 						
-						// respond with the outcome of the operation
-						for (int i = 0; i < outcomeJSON.size(); i++) {
-							results.put("result"+i, outcomeJSON.get(i));
-						}
-						output.writeUTF(results.toJSONString());
+//						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
+//						outcomeJSON = publishObject.publish();
+//						for(JSONObject j : outcomeJSON){
+//							if(j.get("response").equals("success")){
+//
+//										Iterator iter = map1.entrySet().iterator();
+//										while (iter.hasNext()) {
+//										HashMap.Entry entry = (HashMap.Entry) iter.next();
+//										Socket soc = (Socket) entry.getKey();
+//										HashMap hash = (HashMap) entry.getValue();
+//											Iterator iter1 = hash.entrySet().iterator();
+//												while (iter1.hasNext()) {
+//												HashMap.Entry entry1 = (HashMap.Entry) iter1.next();
+//												int key = Integer.parseInt( (entry1.getKey().toString()));
+//												JSONObject val = (JSONObject) entry1.getValue();
+//												if(val.equals(resourceTemplate)){
+//													DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
+//													outsoc.writeUTF(val.toJSONString());
+//													outsoc.flush();
+//												}
+//												}
+//										}
+//										
+//
+//									//	out1.close();
+//									//	socket.close();
+//									}
+//								
+//							
+//						}
+//						// respond with the outcome of the operation
+//						for (int i = 0; i < outcomeJSON.size(); i++) {
+//							results.put("result"+i, outcomeJSON.get(i));
+//						}
+//						output.writeUTF(results.toJSONString());
+						
+						keepAlive = false;
 						break;
 
 					case "REMOVE":
 						RemoveServer removeServer = new RemoveServer(clientCommand, resourceManager, output, clientID, secret);
 						removeServer.remove();
+						keepAlive = false;
 						break;
 
 					case "SHARE":
 						ShareServer shareServer = new ShareServer(clientCommand, resourceManager, output, clientID, secret);
 						shareServer.share();
+						keepAlive = false;
 						break;
 
 					case "QUERY":
 						boolean relay = (boolean)clientCommand.get("relay");
 						QueryServer queryServer = new QueryServer(clientCommand, resourceManager, output, clientID, relay);
 						queryServer.query();
+						keepAlive = false;
 						break;
 
 					case "FETCH":
 						FetchServer fetchServer = new FetchServer(clientCommand, resourceManager, output, clientID);
 						fetchServer.fetch();
+						keepAlive = false;
 						break;
 
 					case "EXCHANGE":
-						ArrayList<JSONObject> e = (ArrayList<JSONObject>) clientCommand.get("serverList");
-						// get the serverlist and visit each JSONObject in them for exchanging
-						ExchangeServer es = new ExchangeServer(resourceManager);
-						JSONObject[] resultArray = new JSONObject[e.size()];
-						int len = 0;
-						JSONObject result = new JSONObject();
-						//	result.put("result1", e.size());
-						for (JSONObject j : e){
-							// process the IP Address for exchanging and write the response into an array.
-							JSONObject result1 = es.exchange(j,output);
-							resultArray[len] = result1;
-							len++;
-						}
-						result.put("response", resultArray);
-						for(JSONObject j : resultArray){
-							logger.info(j.toJSONString());
-						}
+						ExchangeServerNG.exchange(clientCommand, output, clientID, isSecure);
+						keepAlive = false;
 						break;
 						
 					case "SUBSCRIBE":
@@ -283,20 +347,17 @@ public class Server {
 			//			subscribeMap.put(id, client);
 			//			unsubscribeMap.put(id, resource);
 						
-						if(map1.get(client)==null){
+						if(map1.get(clientSocket)==null){
 							HashMap <Integer,JSONObject> newmap = new HashMap<Integer,JSONObject>();
 							newmap.put(id, resource);
-							map1.put(client, newmap);
+							map1.put(clientSocket, newmap);
 						}
 						else{
-							HashMap map = map1.get(client);
+							HashMap map = map1.get(clientSocket);
 							map.put(id, resource);
 							
 						}
-						result = new JSONObject();
-						result.put("response", "success");
-						output.writeUTF(result.toJSONString());
-						output.flush();
+						RespondUtil.returnSuccessMsg(output);
 						break;
 						
 					case "UNSUBSCRIBE":
@@ -313,29 +374,20 @@ public class Server {
 						//	out2.close();
 						}*/
 						
-						if(map1.get(client) != null){
-							HashMap unmap = map1.get(client);
+						if(map1.get(clientSocket) != null){
+							HashMap unmap = map1.get(clientSocket);
 							if(unmap.get(id)!=null){
 								unmap.remove(id);
-								result = new JSONObject();
-								result.put("response","success");
-								output.writeUTF(result.toJSONString());
-								output.flush();
+								RespondUtil.returnSuccessMsg(output);
 							}
 							else{
-								result = new JSONObject();
-								result.put("error","missing id");
-								output.writeUTF(result.toJSONString());
-								output.flush();
+								RespondUtil.returnErrorMsg(output, "missing id");
 							}
 						}
 						else{
-							result = new JSONObject();
-							result.put("error","No subscription record");
-							output.writeUTF(result.toJSONString());
-							output.flush();
+							RespondUtil.returnErrorMsg(output, "No subscription record");
 						}
-						
+						keepAlive = false;
 						break;
 					default:
 						logger.warning(loggerPrefix + "unknown command");
@@ -344,178 +396,91 @@ public class Server {
 					}
 
 				}
-			}
-		}
-		catch(IOException | ParseException e){
-			e.printStackTrace();
+			
+			
+			clientSocket.close();
+			logger.info(loggerPrefix + "Disconnect.");;
+		} catch (IOException | ParseException e) {
+			logger.warning(loggerPrefix + "Unexpected exception");
 		}
 	}
 
 
-//	private static JSONObject parseCommand(JSONObject command){
-//		JSONObject results = new JSONObject();
-//        results.put("response", "success");
-//
-//		switch((String) command.get("command")){
-//		case "REMOVE":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//			String name =resource.get("name").toString();
-//			String tags = resource.get("tags").toString();
-//			String description = resource.get("description").toString();
-//			String uri = resource.get("uri").toString();
-//			String channel = resource.get("channel").toString();
-//			String owner = resource.get("owner").toString();
-//			String ezserver = resource.get("ezserver").toString();
-//			results.put("REMOVE RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "SHARE":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//            String secret =(String)command.get("secret");
-//			String name =resource.get("name").toString();
-//			String tags = resource.get("tags").toString();
-//			String description = resource.get("description").toString();
-//			String uri = resource.get("uri").toString();
-//			String channel = resource.get("channel").toString();
-//			String owner = resource.get("owner").toString();
-//			String ezserver = resource.get("ezserver").toString();
-//			results.put("SHARE RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "PUBLISH":{
-//			JSONObject resource = (JSONObject) command.get("resource");
-//			ArrayList<JSONObject> outcomeJSON;
-//
-//			// query object to handle publish command
-//			PublishServer publishObject = new PublishServer(resource, resourceManager);
-//			outcomeJSON = publishObject.publish();
-//
-//			// respond with the outcome of the operation
-//			for (int i = 0; i < outcomeJSON.size(); i++) {
-//				results.put("result"+i, outcomeJSON.get(i));
-//			}
-//
-//			return results;
-//		}
-//
-//		case "FETCH":{
-//			System.out.println("Fetching!");
-//			JSONObject resourceTemplate = (JSONObject) command.get("resourceTemplate");
-//			String name =resourceTemplate.get("name").toString();
-//			String tags = resourceTemplate.get("tags").toString();
-//			String description = resourceTemplate.get("description").toString();
-//			String uri = resourceTemplate.get("uri").toString();
-//			String channel = resourceTemplate.get("channel").toString();
-//			String owner = resourceTemplate.get("owner").toString();
-//			String ezserver = resourceTemplate.get("ezserver").toString();
-//			results.put("FETCH RESPONSE","success");
-//			return results;
-//		}
-//
-//		case "QUERY":{
-//			JSONObject resource = (JSONObject) command.get("resourceTemplate");
-//
-//			// query server object to handle queries
-//			QueryServer queryObject = new QueryServer(resourceManager);
-//			ArrayList<JSONObject> resourcesJSONFormat;
-//
-//			boolean relay = (boolean)command.get("relay");
-//
-//			resourcesJSONFormat = queryObject.query(resource);
-//
-//			for (int i = 0; i < resourcesJSONFormat.size(); i++) {
-//				results.put("result"+i, resourcesJSONFormat.get(i));
-//			}
-//
-//			return results;
-//		}
-//
-//		case "EXCHANGE":{
-//			break;
-//		}
-//
-//		default:			try{
-//			throw new Exception();
-//		}catch(Exception e){
-//			e.printStackTrace();
-//		}
-//		}
-//		return results;
-//	}
+
+
+	
 
 	/*
 	 * Large ramdon string generator
 	 * for generate server secret
 	 */
 	private static String secretGen(int length) {
-	    String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	    Random random = new Random();
-	    StringBuffer buf = new StringBuffer();
-	    for (int i = 0; i < length; i++) {
-	        int num = random.nextInt(62);
-	        buf.append(str.charAt(num));
-	    }
-	    return buf.toString();
+		String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+		Random random = new Random();
+		StringBuffer buf = new StringBuffer();
+		for (int i = 0; i < length; i++) {
+			int num = random.nextInt(62);
+			buf.append(str.charAt(num));
+		}
+		return buf.toString();
 	}
 
 }
 
 
 
-// define a timer thread class for exchanging periodically
-class MyTask extends TimerTask {
-	// define variables
-	public ArrayList<JSONObject> serverList;
-	public ServerSocket socket;
-	public ResourceManager resourceManager;
-	public DataOutputStream output;
-	public DataInputStream input;
-	public int i;
-	// constructor method
-	public MyTask(ResourceManager resourceManager) throws IOException{
-		//this.socket = socket;
-		this.resourceManager = resourceManager;
-	}
-    @Override
-    public void run() {
-    	Logger logger = Logger.getLogger(MyTask.class.getName());
-    	int i;
-    	// loop each serverresource in the resourceManager class and try to exchange it with current server record
-    	int len = resourceManager.serverlist.size();
-    	if(len>0){
-    		for(i=0; i<len; i++){
-    			if(resourceManager.serverlist.size()==0){
-    				break;
-    			}
-    			JSONObject j1 =resourceManager.serverlist.get(i);
-
-    			// get the hostname and port
-    			String hostname = j1.get("hostname").toString();
-    			int port = Integer.parseInt(j1.get("port").toString());
-
-    			// Use exchanger class to exchange
-    			Exchanger e = new Exchanger(hostname,port);
-    			try {
-
-    				try {
-    					if(!e.exchange(resourceManager,this)){i--;}
-    				} catch (ParseException e1) {
-    					e1.printStackTrace();
-    				}
-
-    			}
-    			catch (InterruptedException e1) {
-    				e1.printStackTrace();
-    			}
-    		}
-    		// print information after finished
-    		logger.fine("Finished Exchanging!");
-    	} else {
-    		logger.warning("No available server on the list");
-    	}
-
-    }
-
-}
+//// define a timer thread class for exchanging periodically
+//class MyTask extends TimerTask {
+//	// define variables
+//	public ArrayList<JSONObject> serverList;
+//	public ServerSocket socket;
+//	public ResourceManager resourceManager;
+//	public DataOutputStream output;
+//	public DataInputStream input;
+//	public int i;
+//	// constructor method
+//	public MyTask(ResourceManager resourceManager) throws IOException{
+//		//this.socket = socket;
+//		this.resourceManager = resourceManager;
+//	}
+//	@Override
+//	public void run() {
+//		Logger logger = Logger.getLogger(MyTask.class.getName());
+//		int i;
+//		// loop each serverresource in the resourceManager class and try to exchange it with current server record
+//		int len = resourceManager.serverlist.size();
+//		if(len>0){
+//			for(i=0; i<len; i++){
+//				if(resourceManager.serverlist.size()==0){
+//					break;
+//				}
+//				JSONObject j1 =resourceManager.serverlist.get(i);
+//
+//				// get the hostname and port
+//				String hostname = j1.get("hostname").toString();
+//				int port = Integer.parseInt(j1.get("port").toString());
+//
+//				// Use exchanger class to exchange
+//				Exchanger e = new Exchanger(hostname,port);
+//				try {
+//
+//					try {
+//						if(!e.exchange(resourceManager,this)){i--;}
+//					} catch (ParseException e1) {
+//						e1.printStackTrace();
+//					}
+//
+//				}
+//				catch (InterruptedException e1) {
+//					e1.printStackTrace();
+//				}
+//			}
+//			// print information after finished
+//			logger.fine("Finished Exchanging!");
+//		} else {
+//			logger.warning("No available server on the list");
+//		}
+//
+//	}
+//
+//}

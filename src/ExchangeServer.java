@@ -1,4 +1,4 @@
-package EZShare;
+
 
 import java.io.DataOutputStream;
 import java.util.ArrayList;
@@ -6,6 +6,9 @@ import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
+
+import EZShare.ResourceManager;
+import EZShare.RespondUtil;
 
 public class ExchangeServer {
 	public ResourceManager r;
@@ -64,7 +67,7 @@ public class ExchangeServer {
                                 	 RespondUtil.returnErrorMsg(output, "missing resourceTemplate"); 	    	   
 		                           }			} }
  	    
-		result.put("response", "success");	
+		RespondUtil.returnSuccessMsg(output);
 		Iterator i1 = r.serverlist.iterator();
 		while(i1.hasNext()){
 			JSONObject j = (JSONObject) i1.next();
@@ -78,13 +81,5 @@ public class ExchangeServer {
 		}
 		r.serverlist.add(serverlist);
 		return result;	
-	}	
-	
-	@SuppressWarnings("unchecked")
-	private JSONObject returnErrorMsg(String msg) {
-		JSONObject result = new JSONObject();
-		result.put("response", "error");
-		result.put("errorMessage", msg);
-		return result;
 	}
 }

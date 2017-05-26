@@ -1,65 +1,7 @@
 package EZShare;
-////<<<<<<< Updated upstream
-////package Aaron1;
-//
-//import java.io.File;
-//import java.net.URI;
-//import java.net.URISyntaxException;
-//import org.json.simple.JSONObject;
-//
-//public class RemoveServer {
-//	@SuppressWarnings("unused")
-//	private ResourceManager resourceManager;
-//	public RemoveServer(ResourceManager r) {
-//		resourceManager = r;
-//	}
-//	@SuppressWarnings("unchecked")
-//	public JSONObject remove(JSONObject clientCmd) {
-//		JSONObject result = new JSONObject();
-//		JSONObject resource = new JSONObject();
-//
-//		URI uri = null;
-//		if (!clientCmd.containsKey("resource")) 
-//			return returnErrorMsg("missing resource");
-//		resource = (JSONObject) clientCmd.get("resource");
-//		
-//		if (resource.containsKey("uri"))
-//			try {
-//				uri = new URI(resource.get("uri").toString());
-//				if (!uri.getScheme().equals("file"))
-//					return returnErrorMsg("invalid resource");
-//				File file = new File(uri);
-//				if (!file.exists())
-//					return returnErrorMsg("cannot remove resource");
-//				else file.delete();
-//				@SuppressWarnings("unused")
-//				Resource r = new Resource(uri.toString());
-//				
-//				result.put("response", "success");		
-//			} catch (URISyntaxException e) {
-//				return returnErrorMsg("invalid resource");
-//			}
-//
-//		return null;	
-//	}
-//	@SuppressWarnings("unchecked")
-//	private JSONObject returnErrorMsg(String msg) {
-//		JSONObject result = new JSONObject();
-//		result.put("response", "error");
-//		result.put("errorMessage", msg);
-//		return result;
-//	}
-//	
-//}
-//=======
-////package Aaron1;
 
 import java.io.DataOutputStream;
-import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
@@ -79,51 +21,73 @@ public class RemoveServer {
 	}
 	
 	public void remove() {
-		Logger logger = Logger.getLogger(FetchServer.class.getName());
+		Logger logger = Logger.getLogger(RemoveServer.class.getName());
 		String loggerPrefix = "Client " + clientID + ": ";
 		
 		JSONObject resource = new JSONObject();
-		URI uri = null;
+		String uri = "";
+		String owner = "";
+		String channel = "";
 		
 		if (!clientCommand.containsKey("resource")) {
 			RespondUtil.returnErrorMsg(output, "missing resource");
+			logger.warning(loggerPrefix + "missing resource");
 			return;
 		}
 		resource = (JSONObject) clientCommand.get("resource");
+		logger.info(loggerPrefix + resource.toJSONString());
+		if (resource.containsKey("uri")) {
+			uri = resource.get("uri").toString();
+			logger.info(loggerPrefix + "uri: " + uri);
+		} else {
+			logger.warning(loggerPrefix + "no uri");
+			RespondUtil.returnErrorMsg(output,"missing resource");
+			return;
+		}
+		if (resource.containsKey("owner")) {
+			owner = resource.get("owner").toString();
+			logger.info(loggerPrefix + "owner: " + owner);
+		} else {
+			logger.warning(loggerPrefix + "no owner");
+			RespondUtil.returnErrorMsg(output,"missing resource");
+			return;
+		}
+		if (resource.containsKey("channel")) {
+			channel = resource.get("channel").toString();
+			logger.info(loggerPrefix + "channel: " + channel);
+		} else {
+			logger.warning(loggerPrefix + "no channel");
+			RespondUtil.returnErrorMsg(output,"missing resource");
+			return;
+		}
 		
-		if (resource.containsKey("uri"))
-			try {
-				uri = new URI(resource.get("uri").toString());
-				if (!uri.getScheme().equals("file")) {
-					{if(!uri.getScheme().equals("http")){
-					//	System.out.println("Scheme:"+uri.getScheme());
-						RespondUtil.returnErrorMsg(output,"invalid resource");}
-					else{
-						ArrayList<Resource> a = this.resourceManager.getServerResources();
-						Iterator<Resource> iterator = a.iterator();
-						int a1 = 0;
-						while(iterator.hasNext()){
-							Resource re = iterator.next();
-							if(re.getUri().equals(resource.get("uri"))){
-								iterator.remove();
-								a1=1;
-								break;
-							}}
-							if(a1==0){RespondUtil.returnErrorMsg(output,"missing resource");}
-							if(a1==1){RespondUtil.returnSuccessMsg(output);}
-				}}}
-				File file = new File(uri);
-				if (!file.exists()) {
-					RespondUtil.returnErrorMsg(output, "cannot remove resource");
-					return;
-				}
-				else file.delete();
-				Resource r = new Resource(uri.toString());
-				
-				RespondUtil.returnSuccessMsg(output);		
-			} catch (URISyntaxException e) {
-				RespondUtil.returnErrorMsg(output, "invalid resource");
-			}
+		if (!isValidUri(uri)) {
+			logger.warning(loggerPrefix + "invalid uri");
+			RespondUtil.returnErrorMsg(output, "invalid resource");
+			return;
+		}
+		
+		if (resourceManager.removeResource(owner, channel, uri)) {
+			RespondUtil.returnSuccessMsg(output);	
+			logger.info(loggerPrefix + "removed");
+		} else {
+			logger.warning(loggerPrefix + "resource not exist");
+			RespondUtil.returnErrorMsg(output, "cannot remove resource");
+			return;
+		}
+
+	}
+	
+	private static boolean isValidUri(String uri) {
+		final URI u;
+		String scheme = "";
+		try {
+			u = URI.create(uri);
+			scheme = u.getScheme();
+		} catch (Exception e) { 
+			return false; 
+		}
+		return ("http".equals(scheme) || "file".equals(scheme));
 	}
 }
-//>>>>>>> Stashed changes
+
