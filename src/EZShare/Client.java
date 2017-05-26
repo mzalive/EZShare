@@ -140,7 +140,7 @@ public class Client {
 
 				logger.info("[SECURE] try connecting " + host + ":" + port);
 
-				System.setProperty("javax.net.debug","all");
+			//	System.setProperty("javax.net.debug","all");
 				String keyStorePwd = "comp90015";
 				SSLContext ctx = SSLContext.getInstance("SSL");  
 				KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
