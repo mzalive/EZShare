@@ -85,7 +85,6 @@ public class Client {
 		options.addOption("query", false, "query for resources from server");
 		options.addOption("remove", false, "remove resource from server");
 		options.addOption("subscribe",false,"subscribe resource from server");
-	//	options.addOption("id",true,"subscription id");
 		options.addOption("secret", true, "secret");
 		options.addOption("servers", true, "server list, host1:port1,host2:port2,...");
 		options.addOption("share", false, "share resource on server");
@@ -138,18 +137,9 @@ public class Client {
 		//create socket for connection
 		try {
 			if (secure) {
-<<<<<<< HEAD
-				logger.info("[secure] try connecting " + host + ":" + port);
-				System.setProperty("javax.net.ssl.keyStore", "myClient");
-				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-				System.setProperty("javax.net.ssl.trustStore","myClient");
-=======
+
 				logger.info("[SECURE] try connecting " + host + ":" + port);
-//				System.setProperty("javax.net.ssl.keyStore", "keystore/clientKeystore/myClient");
-//				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-//				System.setProperty("javax.net.ssl.trustStore","keystore/clientKeystore/myClient");
->>>>>>> origin/master
-//				System.setProperty("javax.net.debug","all");
+
 				String keyStorePwd = "comp90015";
 				SSLContext ctx = SSLContext.getInstance("SSL");  
 				KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
