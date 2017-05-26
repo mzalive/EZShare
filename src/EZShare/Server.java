@@ -58,7 +58,7 @@ public class Server {
 	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
 	Object[][] o = new Object[100][2];
 	int len = 0;
-	
+	static int hit = 0;
 	public static void main(String[] args) {
 
 		// init logger
@@ -67,9 +67,9 @@ public class Server {
 		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
 		logger = Logger.getLogger(Server.class.getName());
 		
-		System.setProperty("javax.net.ssl.keyStore","keystore/serverKeystore/myServer");
+		System.setProperty("javax.net.ssl.keyStore","myServer");
 		System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-		System.setProperty("javax.net.ssl.trustStore","keystore/serverKeystore/myServer");
+		System.setProperty("javax.net.ssl.trustStore","myServer");
 //		System.setProperty("javax.net.debug","all");
 		
 		// handle args
@@ -266,9 +266,9 @@ public class Server {
 						ArrayList<JSONObject> outcomeJSON;
 
 						// query object to handle publish command
-						PublishServer publishServer = new PublishServer(clientCommand, resourceManager, output, clientID);
-						publishServer.publish();
-						
+					    PublishServer publishServer = new PublishServer(clientCommand, resourceManager, output, clientID,map1, hit);
+					    hit = publishServer.publish();
+					//	System.out.println("Server:"+hit);
 //						PublishServer publishObject = new PublishServer(resourceTemplate, resourceManager);
 //						outcomeJSON = publishObject.publish();
 //						for(JSONObject j : outcomeJSON){
@@ -343,12 +343,12 @@ public class Server {
 						subscriptionResources.add(resource);
 			//			resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
 						//SubscribeServer(server.accept().start());
-						int id = Integer.parseInt(clientCommand.get("id").toString());
+						String id = (clientCommand.get("id").toString());
 			//			subscribeMap.put(id, client);
 			//			unsubscribeMap.put(id, resource);
 						
 						if(map1.get(clientSocket)==null){
-							HashMap <Integer,JSONObject> newmap = new HashMap<Integer,JSONObject>();
+							HashMap <String,JSONObject> newmap = new HashMap<String,JSONObject>();
 							newmap.put(id, resource);
 							map1.put(clientSocket, newmap);
 						}
@@ -361,7 +361,7 @@ public class Server {
 						break;
 						
 					case "UNSUBSCRIBE":
-						 id = Integer.parseInt(clientCommand.get("id").toString());
+						 id = clientCommand.get("id").toString();
 					/*	JSONObject j = unsubscribeMap.get(id);
 						if(subscriptionResources.contains(j)){
 							subscriptionResources.remove(j);
@@ -378,7 +378,17 @@ public class Server {
 							HashMap unmap = map1.get(clientSocket);
 							if(unmap.get(id)!=null){
 								unmap.remove(id);
-								RespondUtil.returnSuccessMsg(output);
+							//	RespondUtil.returnSuccessMsg(output);
+								if(unmap.size()==0){
+									map1.remove(clientSocket);
+									if(map1.size()==0){
+										JSONObject resultsize = new JSONObject();
+										resultsize.put("resultSize",hit);
+										output.writeUTF(resultsize.toJSONString());
+										output.flush();
+									}
+								}
+								
 							}
 							else{
 								RespondUtil.returnErrorMsg(output, "missing id");
