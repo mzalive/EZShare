@@ -3,6 +3,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -15,6 +16,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -228,34 +230,34 @@ public class Server {
 	private static boolean canSubscribe(JSONObject rTemplate1, JSONObject rTemplate2){
 		// rTemplate1 is client resource template and rTemplate2 is any server resource template
 		// determine if a client resource template matches the given server resource template
-		
+
 		// check name of the resource
-		if ( !rTemplate1.get("name").equals(rTemplate2.get("name")) )
-				return false;
-		
+		if ( !(rTemplate1.get("name").toString().equals(""))&& !rTemplate1.get("name").equals(rTemplate2.get("name")) )
+		{System.out.println("name not match"); return false;}
+	//	ArrayList<String> ta = (ArrayList<String>) rTemplate1.get("tags");
 		// check tags are the same
-		else if ( !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
-			return false;
+		else if (!(((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+			{System.out.println("tag not match"); return false;}
 		
 		// check if descriptions match
-		else if ( !rTemplate1.get("description").equals(rTemplate2.get("description")) )
-			return false;
+		else if (! (rTemplate1.get("description").toString().equals(""))&&!rTemplate1.get("description").equals(rTemplate2.get("description")) )
+		{System.out.println("description not match"); return false;}
 		
 		// check if the uri's match
-		else if ( !rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
-			return false;
+		else if ( !(rTemplate1.get("uri").toString().equals(""))&&!rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
+		{System.out.println("uri not match"); return false;}
 		
 		// check if the channels match
-		else if ( !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
-			return false;
+		else if (!(rTemplate1.get("channel").toString().equals(""))&& !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
+		{System.out.println("channel not match"); return false;}
 		
 		// check if the owner's are the same
-		else if ( !rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
-			return false;
+		else if ( !(rTemplate1.get("owner").toString().equals(""))&&!rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
+		{System.out.println("owner not match"); return false;}
 		
 		// check if ezServer matches
-		else if ( !rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
-			return false;
+		else if ( (rTemplate1.get("ezServer")!=null)&&!rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
+		{System.out.println("ezServer not match"); return false;}
 		
 		return true;
 	}
@@ -359,18 +361,39 @@ public class Server {
 						break;
 						
 					case "SUBSCRIBE":
+
+						
 						JSONObject resource = (JSONObject) clientCommand.get("resourceTemplate");
+
+					/*	for(Resource r : resourceManager.getServerResources()){
+							if(canSubscribe(resource,r.toJSON()))
+									{
+								hit++;
+								output.writeUTF(r.toJSON().toJSONString());
+									}*/
+						/*	else{
+								output.writeUTF(resource.toJSONString());
+							//	output.flush();
+								System.out.println(resource.get("name").toString().equals(""));
+								System.out.println(resource.get("channel").toString()=="");
+								System.out.println(resource.get("owner").toString()=="");
+								System.out.println(resource.get("uri").toString()=="");
+								System.out.println(resource.get("description").toString()=="");
+								System.out.println(resource.get("ezServer")==null);
+								System.out.println(((ArrayList<String>)(resource.get("tags"))).size());
+								output.writeUTF(r.toJSON().toJSONString());
+								output.flush();
+							}*/
+							
+						//}
 						subscriptionResources.add(resource);
 			//			resourceMap.put(resource, Integer.parseInt(clientCommand.get("id").toString()));
 						//SubscribeServer(server.accept().start());
 						String id = (clientCommand.get("id").toString());
 			//			subscribeMap.put(id, client);
 			//			unsubscribeMap.put(id, resource);
-						if(!isValidUri(resource.get("uri").toString())){
-							logger.warning(loggerPrefix + "invalid uri");
-							RespondUtil.returnErrorMsg(output, "invalid resourceTemplate");
-						}
-						else{
+
+
 						if(map1.get(clientSocket)==null){
 							HashMap <String,JSONObject> newmap = new HashMap<String,JSONObject>();
 							newmap.put(id, resource);
@@ -385,11 +408,33 @@ public class Server {
 						result.put("response", "success");
 						result.put("id", id);
 						try {
+	
 							output.writeUTF(result.toJSONString());
+							try {
+								Thread.sleep(500);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							ArrayList<JSONObject> j1 = new ArrayList<JSONObject>();
+							JSONObject j2 =  new JSONObject();
+							PrintWriter printwriter = new PrintWriter(output,true);
+							Iterator it = resourceManager.getServerResources().iterator();
+							while(it.hasNext()){
+								Resource r1 = (Resource) it.next();
+								if(canSubscribe(resource,r1.toJSON()))
+								{
+							hit++;
+						//	j1.add(r1.toJSON());
+						//	j2 = r1.toJSON();
+							output.writeUTF(r1.toJSON().toJSONString());
+						//	output.flush();
+								}
+							}
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
-						}
+						
 						break;
 						
 					case "UNSUBSCRIBE":

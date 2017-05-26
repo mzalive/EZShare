@@ -30,7 +30,40 @@ public class PublishServer {
 		this.map1 = map1;
 		this.hit = hit;
 	}
-	
+	private static boolean canSubscribe(JSONObject rTemplate1, JSONObject rTemplate2){
+		// rTemplate1 is client resource template and rTemplate2 is any server resource template
+		// determine if a client resource template matches the given server resource template
+
+		// check name of the resource
+		if ( !(rTemplate1.get("name").toString().equals(""))&& !rTemplate1.get("name").equals(rTemplate2.get("name")) )
+		{System.out.println("name not match"); return false;}
+	//	ArrayList<String> ta = (ArrayList<String>) rTemplate1.get("tags");
+		// check tags are the same
+		else if (!(((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+			{System.out.println("tag not match"); return false;}
+		
+		// check if descriptions match
+		else if (! (rTemplate1.get("description").toString().equals(""))&&!rTemplate1.get("description").equals(rTemplate2.get("description")) )
+		{System.out.println("description not match"); return false;}
+		
+		// check if the uri's match
+		else if ( !(rTemplate1.get("uri").toString().equals(""))&&!rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
+		{System.out.println("uri not match"); return false;}
+		
+		// check if the channels match
+		else if (!(rTemplate1.get("channel").toString().equals(""))&& !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
+		{System.out.println("channel not match"); return false;}
+		
+		// check if the owner's are the same
+		else if ( !(rTemplate1.get("owner").toString().equals(""))&&!rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
+		{System.out.println("owner not match"); return false;}
+		
+		// check if ezServer matches
+		else if ( (rTemplate1.get("ezServer")!=null)&&!rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
+		{System.out.println("ezServer not match"); return false;}
+		
+		return true;
+	}
 	// method to publish the resource to the server
 	public int publish() throws IOException {
 		Logger logger = Logger.getLogger(PublishServer.class.getName());
@@ -107,11 +140,12 @@ public class PublishServer {
 					String key =  (entry1.getKey().toString());
 					JSONObject val = (JSONObject) entry1.getValue();
 
-					if(val.equals(resource)){
+
+						if(canSubscribe(val,resource)){
 						hit++;
 				//		System.out.println("Publish:"+hit);
 						DataOutputStream outsoc = new DataOutputStream (soc.getOutputStream());
-						outsoc.writeUTF(val.toJSONString());
+						outsoc.writeUTF(resource.toJSONString());
 						outsoc.flush();
 					}
 					}
