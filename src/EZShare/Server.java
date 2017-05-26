@@ -337,8 +337,8 @@ public class Server {
 						break;
 
 					case "SHARE":
-						ShareServer shareServer = new ShareServer(clientCommand, resourceManager, output, clientID, secret);
-						shareServer.share();
+						ShareServer shareServer = new ShareServer(clientCommand, resourceManager, output, clientID, secret,map1, hit);
+						hit = shareServer.share();
 						keepAlive = false;
 						break;
 
@@ -461,6 +461,7 @@ public class Server {
 									if(map1.size()==0){
 										JSONObject resultsize = new JSONObject();
 										resultsize.put("resultSize",hit);
+										hit=0;
 										output.writeUTF(resultsize.toJSONString());
 										output.flush();
 									}
