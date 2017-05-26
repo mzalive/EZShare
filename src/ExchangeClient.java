@@ -1,4 +1,4 @@
-package EZShare;
+
 import java.awt.List;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

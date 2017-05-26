@@ -1,10 +1,17 @@
 package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
@@ -13,8 +20,11 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -66,6 +76,7 @@ public class Client {
 		options.addOption("description", true, "resource description");
 		options.addOption("exchange", false, "exchange server list with server");
 		options.addOption("fetch", false, "fetch resources from server");
+		options.addOption("subscribe", false, "subscribe resources from server");
 		options.addOption("host", true, "server host, a domain name or IP address");
 		options.addOption("name", true, "resource name");
 		options.addOption("owner", true, "owner");
@@ -127,15 +138,34 @@ public class Client {
 		//create socket for connection
 		try {
 			if (secure) {
+<<<<<<< HEAD
 				logger.info("[secure] try connecting " + host + ":" + port);
 				System.setProperty("javax.net.ssl.keyStore", "myClient");
 				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
 				System.setProperty("javax.net.ssl.trustStore","myClient");
+=======
+				logger.info("[SECURE] try connecting " + host + ":" + port);
+//				System.setProperty("javax.net.ssl.keyStore", "keystore/clientKeystore/myClient");
+//				System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
+//				System.setProperty("javax.net.ssl.trustStore","keystore/clientKeystore/myClient");
+>>>>>>> origin/master
 //				System.setProperty("javax.net.debug","all");
-				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+				String keyStorePwd = "comp90015";
+				SSLContext ctx = SSLContext.getInstance("SSL");  
+				KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
+		        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");  
+		        KeyStore ks = KeyStore.getInstance("JKS");
+		        KeyStore tks = KeyStore.getInstance("JKS");
+		        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
+		        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
+		        kmf.init(ks, keyStorePwd.toCharArray());  
+		        tmf.init(tks);  
+		        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+		        
+//				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+				socket = (SSLSocket) ctx.getSocketFactory().createSocket(host, port);
 			} else {
-				logger.info("[unsecure] try connecting " + host + ":" + port);
+				logger.info("[UNSECURE] try connecting " + host + ":" + port);
 				socket = new Socket(host, port);
 			}
 			// get the input and output stream
@@ -409,6 +439,8 @@ public class Client {
 			return;
 		} catch (ParseException e) {
 			System.out.println("Unexpected response from server");
+		} catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | UnrecoverableKeyException | KeyManagementException e) {
+			e.printStackTrace();
 		}
 	}
 

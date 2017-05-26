@@ -78,8 +78,8 @@ public class ExchangeServerNG {
 					DataOutputStream output;
 					try {
 						if (isSecure) {
-							SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();  
-							sslSocket = (SSLSocket) sslsocketfactory.createSocket(target.getHostname(), target.getPort());  
+//							SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();  
+							sslSocket = (SSLSocket) Server.ctx.getSocketFactory().createSocket(target.getHostname(), target.getPort());  
 							input = new DataInputStream(sslSocket.getInputStream());
 							output = new DataOutputStream(sslSocket.getOutputStream());
 						} else {

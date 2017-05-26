@@ -1,6 +1,7 @@
 package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -8,6 +9,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -19,9 +26,12 @@ import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -48,6 +58,7 @@ public class Server {
 	private static ResourceManager resourceManager; // resource manager handles all server resources
 	
 	private static Logger logger = null;
+	public static SSLContext ctx;
 	
 	static ArrayList<JSONObject> subscriptionResources = new ArrayList<JSONObject>();
 	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
@@ -64,7 +75,24 @@ public class Server {
 		// init logger
 		try {
 			LogManager.getLogManager().readConfiguration(Server.class.getClassLoader().getResourceAsStream("logging.properties"));
-		} catch (SecurityException | IOException e1) { e1.printStackTrace(); }
+
+			String keyStorePwd = "comp90015";
+			ctx = SSLContext.getInstance("SSL");  
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
+	        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");  
+	        KeyStore ks = KeyStore.getInstance("JKS");
+	        KeyStore tks = KeyStore.getInstance("JKS");
+	        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+	        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+	        kmf.init(ks, keyStorePwd.toCharArray());  
+	        tmf.init(tks);  
+	        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+	        
+		} catch (SecurityException | IOException e1) { 
+			e1.printStackTrace(); 
+		} catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | UnrecoverableKeyException | KeyManagementException e) {
+				e.printStackTrace();
+		}
 		logger = Logger.getLogger(Server.class.getName());
 		
 		System.setProperty("javax.net.ssl.keyStore","myServer");
@@ -146,8 +174,10 @@ public class Server {
 			ServerSocketFactory serverSocketFactory = ServerSocketFactory.getDefault();
 			ServerSocket serverSocket = serverSocketFactory.createServerSocket(port);
 			
-			SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
-			SSLServerSocket serverSSLSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(sport);
+//			SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+			SSLServerSocket serverSSLSocket = (SSLServerSocket) ctx.getServerSocketFactory().createServerSocket(sport);
+//			server_secure.setNeedClientAuth(true);
+
 			
 			resourceManager = new ResourceManager(serverSocket.getInetAddress().toString(), Integer.toString(port));
 			
