@@ -24,13 +24,13 @@ public class ResourceManager {
 			serverResources.add(r);
 		}}
 		JSONObject self = new JSONObject();
-		self.put("hostname","192.168.1.1");
-		self.put("port", 3780);
+		//self.put("hostname","192.168.1.1");
+		//self.put("port", 3780);
 		//self.put("hostname", "sunrise.cis.unimelb.edu.au");
 		//self.put("port", 3780);
-		JSONObject self2 = new JSONObject();
-		self2.put("hostname","localhost");
-		self2.put("port", 3780);
+		//JSONObject self2 = new JSONObject();
+		self.put("hostname","localhost");
+		self.put("port", 3780);
 		serverlist.add(self);
 
 	//	serverlist.add(self2);
