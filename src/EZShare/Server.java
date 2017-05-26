@@ -2,13 +2,10 @@ package EZShare;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
-import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -17,10 +14,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -82,8 +76,10 @@ public class Server {
 	        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");  
 	        KeyStore ks = KeyStore.getInstance("JKS");
 	        KeyStore tks = KeyStore.getInstance("JKS");
-	        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
-	        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+//	        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+//	        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray()); 
+	        ks.load(new FileInputStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+	        tks.load(new FileInputStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
 	        kmf.init(ks, keyStorePwd.toCharArray());  
 	        tmf.init(tks);  
 	        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
@@ -94,11 +90,7 @@ public class Server {
 				e.printStackTrace();
 		}
 		logger = Logger.getLogger(Server.class.getName());
-		
-		System.setProperty("javax.net.ssl.keyStore","myServer");
-		System.setProperty("javax.net.ssl.keyStorePassword","comp90015");
-		System.setProperty("javax.net.ssl.trustStore","myServer");
-//		System.setProperty("javax.net.debug","all");
+		System.setProperty("javax.net.debug","all");
 		
 		// handle args
 		Options options = new Options();
@@ -174,9 +166,10 @@ public class Server {
 			ServerSocketFactory serverSocketFactory = ServerSocketFactory.getDefault();
 			ServerSocket serverSocket = serverSocketFactory.createServerSocket(port);
 			
-//			SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+			SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
 			SSLServerSocket serverSSLSocket = (SSLServerSocket) ctx.getServerSocketFactory().createServerSocket(sport);
-//			server_secure.setNeedClientAuth(true);
+//			SSLServerSocket serverSSLSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(sport);
+			serverSSLSocket.setNeedClientAuth(true);
 
 			
 			resourceManager = new ResourceManager(serverSocket.getInetAddress().toString(), Integer.toString(port));
@@ -188,8 +181,6 @@ public class Server {
 			ExchangeServerNG.addHost(true, self_secure);
 			
 			logger.fine("Server established, standing by.");
-//			Timer timer = new Timer();
-//			timer.schedule(new MyTask(resourceManager), 1000, exchange_interval*1000);
 			
 			Thread serverExchange = new Thread(() -> ExchangeServerNG.serverExchange(exchange_interval * 1000, false));
 			serverExchange.start();

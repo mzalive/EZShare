@@ -140,20 +140,25 @@ public class Client {
 
 				logger.info("[SECURE] try connecting " + host + ":" + port);
 
+				System.setProperty("javax.net.debug","all");
 				String keyStorePwd = "comp90015";
 				SSLContext ctx = SSLContext.getInstance("SSL");  
 				KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
 		        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");  
 		        KeyStore ks = KeyStore.getInstance("JKS");
 		        KeyStore tks = KeyStore.getInstance("JKS");
-		        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
-		        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
+//		        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
+//		        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray()); 
+		        ks.load(new FileInputStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
+		        tks.load(new FileInputStream("keystore/clientKeystore/myClient"), keyStorePwd.toCharArray());  
 		        kmf.init(ks, keyStorePwd.toCharArray());  
 		        tmf.init(tks);  
 		        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 		        
 //				SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) ctx.getSocketFactory().createSocket(host, port);
+
+//				socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
 			} else {
 				logger.info("[UNSECURE] try connecting " + host + ":" + port);
 				socket = new Socket(host, port);
