@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -365,7 +366,11 @@ public class Server {
 						String id = (clientCommand.get("id").toString());
 			//			subscribeMap.put(id, client);
 			//			unsubscribeMap.put(id, resource);
-						
+						if(!isValidUri(resource.get("uri").toString())){
+							logger.warning(loggerPrefix + "invalid uri");
+							RespondUtil.returnErrorMsg(output, "invalid resourceTemplate");
+						}
+						else{
 						if(map1.get(clientSocket)==null){
 							HashMap <String,JSONObject> newmap = new HashMap<String,JSONObject>();
 							newmap.put(id, resource);
@@ -376,7 +381,15 @@ public class Server {
 							map.put(id, resource);
 							
 						}
-						RespondUtil.returnSuccessMsg(output);
+						JSONObject result = new JSONObject();
+						result.put("response", "success");
+						result.put("id", id);
+						try {
+							output.writeUTF(result.toJSONString());
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						}
 						break;
 						
 					case "UNSUBSCRIBE":
@@ -409,13 +422,13 @@ public class Server {
 								}
 								
 							}
-							else{
-								RespondUtil.returnErrorMsg(output, "missing id");
-							}
+						//	else{
+							//	RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
+						//	}
 						}
-						else{
-							RespondUtil.returnErrorMsg(output, "No subscription record");
-						}
+					//	else{
+						//	RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
+					//	}
 						keepAlive = false;
 						break;
 					default:
@@ -453,7 +466,17 @@ public class Server {
 		}
 		return buf.toString();
 	}
-
+	private static boolean isValidUri(String uri) {
+		final URI u;
+		String scheme = "";
+		try {
+			u = URI.create(uri);
+			scheme = u.getScheme();
+		} catch (Exception e) { 
+			return false; 
+		}
+		return ("http".equals(scheme) || "file".equals(scheme));
+	}
 }
 
 
