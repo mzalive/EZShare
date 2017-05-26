@@ -71,15 +71,13 @@ public class Server {
 			LogManager.getLogManager().readConfiguration(Server.class.getClassLoader().getResourceAsStream("logging.properties"));
 
 			String keyStorePwd = "comp90015";
-			ctx = SSLContext.getInstance("SSL");  
+			ctx = SSLContext.getInstance("TLS");  
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");  
 	        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");  
 	        KeyStore ks = KeyStore.getInstance("JKS");
 	        KeyStore tks = KeyStore.getInstance("JKS");
-//	        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
-//	        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray()); 
-	        ks.load(new FileInputStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
-	        tks.load(new FileInputStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+	        ks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());  
+	        tks.load(Server.class.getClassLoader().getResourceAsStream("keystore/serverKeystore/myServer"), keyStorePwd.toCharArray());
 	        kmf.init(ks, keyStorePwd.toCharArray());  
 	        tmf.init(tks);  
 	        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
@@ -90,7 +88,7 @@ public class Server {
 				e.printStackTrace();
 		}
 		logger = Logger.getLogger(Server.class.getName());
-		System.setProperty("javax.net.debug","all");
+//		System.setProperty("javax.net.debug","all");
 		
 		// handle args
 		Options options = new Options();
