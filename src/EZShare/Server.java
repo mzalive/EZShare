@@ -438,7 +438,6 @@ public class Server {
 								ArrayList<Host> hostList;
 								if(isSecure){	
 									hostList = ResourceManager.hostList_secure;
-
 								}
 								else{
 									hostList = ResourceManager.hostList;
