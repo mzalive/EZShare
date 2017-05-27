@@ -345,8 +345,7 @@ public class Server {
 						break;
 
 					case "QUERY":
-						boolean relay = (boolean)clientCommand.get("relay");
-						QueryServer queryServer = new QueryServer(clientCommand, resourceManager, output, clientID, relay);
+						QueryServer queryServer = new QueryServer(clientCommand, resourceManager, output, clientID, isSecure);
 						queryServer.query();
 						keepAlive = false;
 						break;

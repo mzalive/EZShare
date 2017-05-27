@@ -43,6 +43,7 @@ public class Client {
 
 	private static String host = "localhost";
 	private static int port = 3780;
+	private static int sport = 3781;
 	private static boolean secure = false;
 
 	private static String channel = "";
@@ -132,7 +133,10 @@ public class Client {
 		if (cLine.hasOption("port")) {
 			port = Integer.valueOf(cLine.getOptionValue("port"));
 			logger.info("set port : " + port);
-		} else logger.info("no assigned port, using default : " + port);
+		} else {
+			port = secure ? sport : port;
+			logger.info("no assigned port, using default : " + port);
+		}
 
 		//create socket for connection
 		try {
@@ -184,7 +188,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);
 				if (response.get("response").equals("success")) {
@@ -230,7 +234,7 @@ public class Client {
 					output.flush();
 
 					// get response
-					System.out.println("waiting for server respond...");
+					System.out.println("waiting for server responds...");
 					System.out.println(input.readUTF());
 
 				} else {
@@ -255,7 +259,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);
 
@@ -330,7 +334,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
@@ -359,7 +363,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
@@ -382,7 +386,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);			
 			} 
@@ -408,7 +412,7 @@ public class Client {
 				output.flush();
 
 				// get response
-				System.out.println("waiting for server respond...");
+				System.out.println("waiting for server responds...");
 				JSONObject response = (JSONObject) p.parse(input.readUTF());
 				System.out.println(response);		
 				if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
