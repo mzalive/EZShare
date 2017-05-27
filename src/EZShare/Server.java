@@ -460,8 +460,10 @@ public class Server {
 									}
 									DataOutputStream subout = new DataOutputStream(subsocket.getOutputStream());
 									DataInputStream subint = new DataInputStream(subsocket.getInputStream());
+									subout.writeUTF(serverCommand.toJSONString());
+									subout.flush();
 									JSONParser p = new JSONParser();
-									JSONObject response = (JSONObject) p.parse(input.readUTF());
+									JSONObject response = (JSONObject) p.parse(subint.readUTF());
 									System.out.println(response);		
 									if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
 										RelayThread rt = new RelayThread(subint,output);
@@ -469,8 +471,7 @@ public class Server {
 										relayMap.put(id, rt);
 										relayIDMap.put(id, subsocket);
 									}
-									subout.writeUTF(serverCommand.toJSONString());
-									subout.flush();
+
 								}
 							}
 							
