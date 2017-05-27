@@ -405,7 +405,7 @@ public class Client {
 				clientCommand.put("command", "SUBSCRIBE");
 				clientCommand.put("resourceTemplate", template.toJSON());
 				clientCommand.put("id", id);
-				clientCommand.put("relay", false);
+				clientCommand.put("relay", true);
 
 				// send request
 				output.writeUTF(clientCommand.toJSONString());

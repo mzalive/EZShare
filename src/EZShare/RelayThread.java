@@ -12,9 +12,12 @@ public class RelayThread extends Thread{
 		this.output = output;
 	}
 	public void run(){
+
+		System.out.println("registered");
 		try {
-			while(input.available()>0){
+			while(true){
 				String result = input.readUTF();
+				System.out.println(result);
 				output.writeUTF(result);
 				output.flush();
 			}
@@ -22,5 +25,6 @@ public class RelayThread extends Thread{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		System.out.println("exit");
 	}
 }

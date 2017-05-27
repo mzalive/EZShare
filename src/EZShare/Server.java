@@ -434,44 +434,85 @@ public class Server {
 							}*/
 							
 							if((boolean)clientCommand.get("relay")){
-								ArrayList<Host> hostList = new ArrayList<Host>();
+								logger.info("relaying");
+								ArrayList<Host> hostList;
 								if(isSecure){	
-									hostList = resourceManager.hostList;
+									hostList = ResourceManager.hostList_secure;
 
 								}
 								else{
-									hostList = resourceManager.hostList_secure;
+									hostList = ResourceManager.hostList;
 								}
-								Iterator hostit = hostList.iterator();
+								Iterator<Host> hostit = hostList.iterator();
 								while(hostit.hasNext()){
 									Host h = (Host) hostit.next();
+									if (h.equals(Server.self) || h.equals(Server.self_secure))
+										continue;
 									String hname = h.getHostname();
 									int hport = h.getPort();
+
+									logger.info("hit: " + h.toString());
+									
 									JSONObject serverCommand = new JSONObject();
 									serverCommand.put("command", "SUBSCRIBE");
 									serverCommand.put("resourceTemplate", resource);
 									serverCommand.put("id", id);
-									serverCommand.put("relay", true);
-									Socket subsocket;
+									serverCommand.put("relay", false);
+									
+									logger.info(serverCommand.toString());
+									
+									Socket subSocket = null;
+									SSLSocket subSSLSocket = null;
+									DataInputStream subinput;
+									DataOutputStream suboutput;
 									if(isSecure){
-									 subsocket = (SSLSocket) ctx.getSocketFactory().createSocket(hname, hport);}
-									else{
-										subsocket = new Socket(hname,hport);
+										subSSLSocket = (SSLSocket) ctx.getSocketFactory().createSocket(hname, hport);
+										subinput = new DataInputStream(subSSLSocket.getInputStream());
+										suboutput = new DataOutputStream(subSSLSocket.getOutputStream());
+									} else {
+										subSocket = new Socket(hname,hport);
+										subinput = new DataInputStream(subSocket.getInputStream());
+										suboutput = new DataOutputStream(subSocket.getOutputStream());
 									}
-									DataOutputStream subout = new DataOutputStream(subsocket.getOutputStream());
-									DataInputStream subint = new DataInputStream(subsocket.getInputStream());
 									JSONParser p = new JSONParser();
-									JSONObject response = (JSONObject) p.parse(input.readUTF());
+
+									suboutput.writeUTF(serverCommand.toJSONString());
+									suboutput.flush();  
+
+									JSONObject response = (JSONObject) p.parse(subinput.readUTF());
+									
 									System.out.println(response);		
 									if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
-										RelayThread rt = new RelayThread(subint,output);
+										RelayThread rt = new RelayThread(subinput,output);
 										rt.start();
 										relayMap.put(id, rt);
-										relayIDMap.put(id, subsocket);
+										relayIDMap.put(id, isSecure ? subSSLSocket : subSocket);
 									}
-									subout.writeUTF(serverCommand.toJSONString());
-									subout.flush();
+									
+//									Socket subsocket;
+//									if(isSecure){
+//									 subsocket = (SSLSocket) ctx.getSocketFactory().createSocket(hname, hport);}
+//									else{
+//										subsocket = new Socket(hname,hport);
+//									}
+//									DataOutputStream subout = new DataOutputStream(subsocket.getOutputStream());
+//									DataInputStream subint = new DataInputStream(subsocket.getInputStream());
+//									JSONParser p = new JSONParser();
+//
+//									subout.writeUTF(serverCommand.toJSONString());
+//									subout.flush();  
+//
+//									JSONObject response = (JSONObject) p.parse(subint.readUTF());
+//									System.out.println(response);		
+//									if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
+//										System.out.println("registered");
+//										RelayThread rt = new RelayThread(subint,output);
+//										rt.start();
+//										relayMap.put(id, rt);
+//										relayIDMap.put(id, subsocket);
+//									}
 								}
+								logger.info("serverlist over");
 							}
 							
 						} catch (IOException e) {
