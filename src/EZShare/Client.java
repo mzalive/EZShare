@@ -401,7 +401,7 @@ public class Client {
 				clientCommand.put("command", "SUBSCRIBE");
 				clientCommand.put("resourceTemplate", template.toJSON());
 				clientCommand.put("id", id);
-				clientCommand.put("relay", true);
+				clientCommand.put("relay", false);
 
 				// send request
 				output.writeUTF(clientCommand.toJSONString());
@@ -418,7 +418,8 @@ public class Client {
 					while(true) {
 						JSONObject resource = (JSONObject) p.parse(input.readUTF().toString());
 						System.out.println(resource);
-						if(resource.containsKey("resultSize")) break;
+						if(resource==null)break;
+						else if(resource.containsKey("resultSize") ) break;
 					}
 				}
 			} 
@@ -429,7 +430,7 @@ public class Client {
 			System.out.println("Unknown server, exit");
 			return;
 		} catch (IOException e) {
-			System.out.println("Failed to connect, exit");
+		//	System.out.println("Failed to connect, exit");
 			return;
 		} catch (ParseException e) {
 			System.out.println("Unexpected response from server");

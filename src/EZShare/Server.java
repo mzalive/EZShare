@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -61,7 +62,7 @@ public class Server {
 	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
 	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
 	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
-	
+	static HashMap <RelayThread,String> relayMap = new HashMap<RelayThread,String>();
 	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
 	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
 	Object[][] o = new Object[100][2];
@@ -233,31 +234,31 @@ public class Server {
 
 		// check name of the resource
 		if ( !(rTemplate1.get("name").toString().equals(""))&& !rTemplate1.get("name").equals(rTemplate2.get("name")) )
-		{System.out.println("name not match"); return false;}
+		 return false;
 	//	ArrayList<String> ta = (ArrayList<String>) rTemplate1.get("tags");
 		// check tags are the same
 		else if (!(((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
-			{System.out.println("tag not match"); return false;}
+			 return false;
 		
 		// check if descriptions match
 		else if (! (rTemplate1.get("description").toString().equals(""))&&!rTemplate1.get("description").equals(rTemplate2.get("description")) )
-		{System.out.println("description not match"); return false;}
+		 return false;
 		
 		// check if the uri's match
 		else if ( !(rTemplate1.get("uri").toString().equals(""))&&!rTemplate1.get("uri").equals(rTemplate2.get("uri")) )
-		{System.out.println("uri not match"); return false;}
+		 return false;
 		
 		// check if the channels match
 		else if (!(rTemplate1.get("channel").toString().equals(""))&& !rTemplate1.get("channel").equals(rTemplate2.get("channel")) )
-		{System.out.println("channel not match"); return false;}
+		 return false;
 		
 		// check if the owner's are the same
 		else if ( !(rTemplate1.get("owner").toString().equals(""))&&!rTemplate1.get("owner").equals(rTemplate2.get("owner")) )
-		{System.out.println("owner not match"); return false;}
+		 return false;
 		
 		// check if ezServer matches
 		else if ( (rTemplate1.get("ezServer")!=null)&&!rTemplate1.get("ezServer").equals(rTemplate2.get("ezServer")) )
-		{System.out.println("ezServer not match"); return false;}
+		 return false;
 		
 		return true;
 	}
@@ -416,7 +417,7 @@ public class Server {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}
-							ArrayList<JSONObject> j1 = new ArrayList<JSONObject>();
+				/*			ArrayList<JSONObject> j1 = new ArrayList<JSONObject>();
 							JSONObject j2 =  new JSONObject();
 							PrintWriter printwriter = new PrintWriter(output,true);
 							Iterator it = resourceManager.getServerResources().iterator();
@@ -430,7 +431,47 @@ public class Server {
 							output.writeUTF(r1.toJSON().toJSONString());
 						//	output.flush();
 								}
+							}*/
+							
+							if((boolean)clientCommand.get("relay")){
+								ArrayList<Host> hostList = new ArrayList<Host>();
+								if(isSecure){	
+									hostList = resourceManager.hostList;
+
+								}
+								else{
+									hostList = resourceManager.hostList_secure;
+								}
+								Iterator hostit = hostList.iterator();
+								while(hostit.hasNext()){
+									Host h = (Host) hostit.next();
+									String hname = h.getHostname();
+									int hport = h.getPort();
+									JSONObject serverCommand = new JSONObject();
+									serverCommand.put("command", "SUBSCRIBE");
+									serverCommand.put("resourceTemplate", resource);
+									serverCommand.put("id", id);
+									serverCommand.put("relay", true);
+									Socket subsocket;
+									if(isSecure){
+									 subsocket = (SSLSocket) ctx.getSocketFactory().createSocket(hname, hport);}
+									else{
+										subsocket = new Socket(hname,hport);
+									}
+									DataOutputStream subout = new DataOutputStream(subsocket.getOutputStream());
+									DataInputStream subint = new DataInputStream(subsocket.getInputStream());
+									JSONParser p = new JSONParser();
+									JSONObject response = (JSONObject) p.parse(input.readUTF());
+									System.out.println(response);		
+									if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
+										RelayThread rt = new RelayThread(subint,output);
+										rt.start();
+									}
+									subout.writeUTF(serverCommand.toJSONString());
+									subout.flush();
+								}
 							}
+							
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -523,6 +564,9 @@ public class Server {
 		}
 		return ("http".equals(scheme) || "file".equals(scheme));
 	}
+
+
+
 }
 
 
