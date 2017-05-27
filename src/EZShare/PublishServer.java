@@ -39,7 +39,7 @@ public class PublishServer {
 		 return false;
 	//	ArrayList<String> ta = (ArrayList<String>) rTemplate1.get("tags");
 		// check tags are the same
-		else if (!(((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+		else if ((((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
 			 return false;
 		
 		// check if descriptions match

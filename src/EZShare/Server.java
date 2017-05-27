@@ -62,7 +62,8 @@ public class Server {
 	static HashMap <JSONObject,Integer> resourceMap = new HashMap<JSONObject,Integer>();
 	static HashMap <Integer,JSONObject>unsubscribeMap = new HashMap<Integer,JSONObject>();
 	static HashMap <Integer,Socket> subscribeMap = new HashMap<Integer,Socket>();
-	static HashMap <RelayThread,String> relayMap = new HashMap<RelayThread,String>();
+	static HashMap <String,RelayThread> relayMap = new HashMap<String,RelayThread>();
+	static HashMap <String, Socket> relayIDMap = new HashMap<String,Socket>();
 	static HashMap <Socket,HashMap> map1 = new HashMap<Socket,HashMap>();
 	static HashMap <Integer,JSONObject> map2 = new HashMap<Integer,JSONObject>();
 	Object[][] o = new Object[100][2];
@@ -237,7 +238,7 @@ public class Server {
 		 return false;
 	//	ArrayList<String> ta = (ArrayList<String>) rTemplate1.get("tags");
 		// check tags are the same
-		else if (!(((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
+		else if ((((ArrayList<String>) rTemplate1.get("tags")).size()!=0 )&& !rTemplate1.get("tags").equals(rTemplate2.get("tags")) )
 			 return false;
 		
 		// check if descriptions match
@@ -466,6 +467,8 @@ public class Server {
 									if (response.containsKey("response") && "success".equals(response.get("response").toString())) {
 										RelayThread rt = new RelayThread(subint,output);
 										rt.start();
+										relayMap.put(id, rt);
+										relayIDMap.put(id, subsocket);
 									}
 									subout.writeUTF(serverCommand.toJSONString());
 									subout.flush();
@@ -495,6 +498,17 @@ public class Server {
 						if(map1.get(clientSocket) != null){
 							HashMap unmap = map1.get(clientSocket);
 							if(unmap.get(id)!=null){
+								RelayThread tr = relayMap.get(id);
+								if(tr!=null){
+									tr.stop();
+									Socket s = relayIDMap.get(id);
+								DataOutputStream relayout1 = new DataOutputStream(s.getOutputStream());
+								relayout1.writeUTF(clientCommand.toJSONString());
+								relayout1.flush();
+								relayout1.close();
+								relayIDMap.remove(id);
+								relayMap.remove(id);
+								}
 								unmap.remove(id);
 							//	RespondUtil.returnSuccessMsg(output);
 								if(unmap.size()==0){
@@ -513,6 +527,8 @@ public class Server {
 							//	RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
 						//	}
 						}
+						
+
 					//	else{
 						//	RespondUtil.returnErrorMsg(output, "missing resourceTemplate");
 					//	}
